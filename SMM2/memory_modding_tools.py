@@ -4,7 +4,7 @@
 import socket
 import struct
 import enum
-import sprites
+from SMM2 import sprites
 
 Status = enum.IntEnum("Status", ("STOPPED", "RUNNING", "PAUSED"), start=0)
 

@@ -3,11 +3,11 @@ import numpy
 import struct
 import enum
 import zlib
-import streams
-import encryption
-import keytables
-import sprites
-import data
+from SMM2 import streams
+from SMM2 import encryption
+from SMM2 import keytables
+from SMM2 import sprites
+from SMM2 import data
 
 class Save:
     def __init__(self, data=None):
