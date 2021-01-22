@@ -1,8 +1,8 @@
-from SMM2 import streams
-from SMM2 import encryption
-from SMM2 import keytables
-from SMM2 import sprites
-from SMM2 import data
+import streams
+import encryption
+import keytables
+import sprites
+import data
 import codecs
 import numpy
 import struct

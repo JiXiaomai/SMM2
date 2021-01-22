@@ -5,8 +5,8 @@ from Crypto.Cipher import AES
 from Crypto import Random
 from nintendo.sead import random
 from nintendo.enl import crypto
-from SMM2 import streams
-from SMM2 import keytables
+import streams
+import keytables
 
 class Course:
     def __init__(self, data=None):
