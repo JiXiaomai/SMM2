@@ -8,6 +8,8 @@ import time
 import threading
 from SMM2 import sprites
 
+constants = [0x214, 0x4C0]
+
 Status = enum.IntEnum("Status", ("STOPPED", "RUNNING", "PAUSED"), start=0)
 
 Command = enum.IntEnum("Command", (
@@ -227,6 +229,14 @@ class NoexsClient:
         addr = self.peek64(ptr)-0x28
         return addr
 
+    def peek_all_sprites(self):
+        addr = self.peek_oldest_sprite_addr()
+        count = self.peek_sprite_count()[1]
+        s = []
+        for i in range(count):
+            s.append([addr+constants[1]*i, sprites.Sprite(nx.peek8(addr+constants[1]*i+0x20))])
+        return s
+
     class oldest_sprite:
         def __init__(self, nx):
             self.nx = nx
@@ -257,6 +267,9 @@ class NoexsClient:
                     self.nx.peek8(self.addr+0x23)
                 ]
             }
+            self.placement_options = []
+            for i in range(6):
+                self.placement_options.append(self.nx.peek32(self.addr+constants[0]+i))
 
         def poke_pos_x(self, value=None):
             if value == None:
@@ -311,6 +324,13 @@ class NoexsClient:
                 return None
             else:
                 self.nx.poke8(self.addr+0x22, value)
+
+        def poke_placement_options(self, placement_options):
+            if not len(placement_options) == 6:
+                return None
+            else:
+                for i in range(6):
+                    self.nx.poke32(self.addr+constants[0]+i, placement_options[i])
 
     class newest_sprite:
         def __init__(self, nx):
@@ -340,6 +360,9 @@ class NoexsClient:
                     self.nx.peek8(self.addr+0x22)
                 ]
             }
+            self.placement_options = []
+            for i in range(6):
+                self.placement_options.append(self.nx.peek32(self.addr+constants[0]+i))
 
         def poke_pos_x(self, value=None):
             if value == None:
@@ -395,17 +418,18 @@ class NoexsClient:
             else:
                 self.nx.poke8(self.addr+0x22, value)
 
+        def poke_placement_options(self, placement_options):
+            if not len(placement_options) == 6:
+                return None
+            else:
+                for i in range(6):
+                    self.nx.poke32(self.addr+constants[0]+i, placement_options[i])
+
 def main():
     nx = NoexsClient(["192.168.1.5", "7331"])
     nx.attach(nx.find_game(0x01009B90006DC000))
     nx.resume()
     nx.find_binary()
-
-    spacing = [
-        0x214,
-        0x4C0
-    ]
-
     return nx
 
 if __name__ == "__main__":
