@@ -267,9 +267,9 @@ class NoexsClient:
                     self.nx.peek8(self.addr+0x23)
                 ]
             }
-            self.placement_options = []
+            self.placement_flags = []
             for i in range(6):
-                self.placement_options.append(self.nx.peek32(self.addr+constants[0]+i))
+                self.placement_flags.append(self.nx.peek32(self.addr+constants[0]+i))
 
         def poke_pos_x(self, value=None):
             if value == None:
@@ -325,12 +325,12 @@ class NoexsClient:
             else:
                 self.nx.poke8(self.addr+0x22, value)
 
-        def poke_placement_options(self, placement_options):
-            if not len(placement_options) == 6:
+        def poke_placement_flags(self, placement_flags):
+            if not len(placement_flags) == 6:
                 return None
             else:
                 for i in range(6):
-                    self.nx.poke32(self.addr+constants[0]+i, placement_options[i])
+                    self.nx.poke32(self.addr+constants[0]+i, placement_flags[i])
 
     class newest_sprite:
         def __init__(self, nx):
@@ -360,9 +360,9 @@ class NoexsClient:
                     self.nx.peek8(self.addr+0x22)
                 ]
             }
-            self.placement_options = []
+            self.placement_flags = []
             for i in range(6):
-                self.placement_options.append(self.nx.peek32(self.addr+constants[0]+i))
+                self.placement_flags.append(self.nx.peek32(self.addr+constants[0]+i))
 
         def poke_pos_x(self, value=None):
             if value == None:
@@ -418,12 +418,12 @@ class NoexsClient:
             else:
                 self.nx.poke8(self.addr+0x22, value)
 
-        def poke_placement_options(self, placement_options):
-            if not len(placement_options) == 6:
+        def poke_placement_flags(self, placement_flags):
+            if not len(placement_flags) == 6:
                 return None
             else:
                 for i in range(6):
-                    self.nx.poke32(self.addr+constants[0]+i, placement_options[i])
+                    self.nx.poke32(self.addr+constants[0]+i, placement_flags[i])
 
 def main():
     nx = NoexsClient(["192.168.1.5", "7331"])
@@ -443,7 +443,7 @@ if __name__ == "__main__":
             break
         except ValueError:
             time.sleep(1)
-            if i != 3:
+            if i != 5:
                 pass
             else:
                 print("SPRITES COULD NOT BE FOUND!")
