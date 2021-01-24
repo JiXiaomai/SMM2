@@ -4,6 +4,8 @@
 import socket
 import struct
 import enum
+import time
+import threading
 from SMM2 import sprites
 
 Status = enum.IntEnum("Status", ("STOPPED", "RUNNING", "PAUSED"), start=0)
@@ -393,7 +395,7 @@ class NoexsClient:
             else:
                 self.nx.poke8(self.addr+0x22, value)
 
-if __name__ == "__main__":
+def main():
     nx = NoexsClient(["192.168.1.5", "7331"])
     nx.attach(nx.find_game(0x01009B90006DC000))
     nx.resume()
@@ -404,8 +406,20 @@ if __name__ == "__main__":
         0x4C0
     ]
 
-    try:
-        oldest_sprite = nx.oldest_sprite(nx)
-        newest_sprite = nx.newest_sprite(nx)
-    except:
-        pass
+    return nx
+
+if __name__ == "__main__":
+    nx = main()
+    for i in range(1, 6):
+        print("SEARCHING FOR SPRITES... (ATTEMPT %s/5)" % i)
+        try:
+            oldest_sprite = nx.oldest_sprite(nx)
+            newest_sprite = nx.newest_sprite(nx)
+            print("SPRITES HAVE BEEN FOUND!")
+            break
+        except ValueError:
+            time.sleep(1)
+            if i != 3:
+                pass
+            else:
+                print("SPRITES COULD NOT BE FOUND!")
