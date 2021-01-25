@@ -7,8 +7,7 @@ import enum
 import time
 import threading
 from SMM2 import sprites
-
-constants = [0x214, 0x4C0]
+from SMM2 import expression_evaluator
 
 Status = enum.IntEnum("Status", ("STOPPED", "RUNNING", "PAUSED"), start=0)
 
@@ -34,7 +33,7 @@ class NoexsClient:
     def _recvall(self, amount):
         buf = b""
         while len(buf) < amount:
-            buf += self.sock.recv(amount - len(buf))
+            buf += self.sock.recv(amount-len(buf))
         return buf
 
     def _recv_result(self):
@@ -52,9 +51,9 @@ class NoexsClient:
             indata = self._recvall(struct.unpack("<I", self._recvall(4))[0])
             pos = 0
             for i in range(0, len(indata), 2):
-                for j in range(indata[i + 1]):
-                    outdata[pos + j] = indata[i]
-                pos += indata[i + 1]
+                for j in range(indata[i+1]):
+                    outdata[pos+j] = indata[i]
+                pos += indata[i+1]
             return bytes(outdata)
 
     def _assert_result_ok(self, throwaway=False):
@@ -130,7 +129,7 @@ class NoexsClient:
         self.sock.sendall(struct.pack("<B", int(Command.GET_PIDS)))
         count = struct.unpack("<I", self._recvall(4))[0]
         if count > 0:
-            pids = list(struct.unpack("<%dQ" % count, self._recvall(8 * count)))
+            pids = list(struct.unpack("<%dQ" % count, self._recvall(8*count)))
         else:
             pids = []
         self._assert_result_ok()
@@ -181,95 +180,94 @@ class NoexsClient:
         print("RODATA: %10x .. %10x" % rodata)
         print("DATA: %10x .. %10x" % data)
 
+        return self.code_static_rx[0][0]+0x4000
+
     def peek_timer(self):
-        ptr = self.peek64(self.code_static_rx[0][0]+0x4000+0x2BEBA08)+0x18
-        ptr = self.peek64(ptr)+0x8
-        ptr = self.peek64(ptr)+0x10
-        addr = self.peek64(ptr)+0x14
+        addr = expression_evaluator.evaluate_expression(self, self.expressions["timer"])
         return [addr, self.peek16(addr)]
 
     def poke_timer(self, value=None):
         if value == None:
             return None
         else:
-            ptr = self.peek64(self.code_static_rx[0][0]+0x4000+0x2BEBA08)+0x18
-            ptr = self.peek64(ptr)+0x8
-            ptr = self.peek64(ptr)+0x10
-            addr = self.peek64(ptr)+0x14
+            addr = expression_evaluator.evaluate_expression(self, self.expressions["timer"])
             self.poke16(addr, value)
 
-    def peek_sprite_count(self):
-        ptr = self.peek64(self.code_static_rx[0][0]+0x4000+0x2A5A918)+0x18
-        ptr = self.peek64(ptr)+0x10
-        ptr = self.peek64(ptr)+0x8
-        addr = self.peek64(ptr)+0xBFC
-        return [addr, self.peek16(addr)]
+    def peek_actor_count(self):
+        addr = expression_evaluator.evaluate_expression(self, self.expressions["actor_count"])
+        return [addr, self.peek32(addr)]
 
-    def poke_sprite_count(self, value=None):
+    def poke_actor_count(self, value=None):
         if value == None:
             return None
         else:
-            ptr = self.peek64(self.code_static_rx[0][0]+0x4000+0x2A5A918)+0x18
-            ptr = self.peek64(ptr)+0x10
-            ptr = self.peek64(ptr)+0x8
-            addr = self.peek64(ptr)+0xBFC
+            addr = expression_evaluator.evaluate_expression(self, self.expressions["actor_count"])
             self.poke32(addr, value)
 
-    def peek_oldest_sprite_addr(self):
-        ptr = self.peek64(self.code_static_rx[0][0]+0x4000+0x2A5A918)+0x18
-        ptr = self.peek64(ptr)+0x10
-        ptr = self.peek64(ptr)+0x1A0
-        addr = self.peek64(ptr)+0x8
+    def peek_tile_count(self):
+        addr = expression_evaluator.evaluate_expression(self, self.expressions["tile_count"])
+        return [addr, self.peek32(addr)]
+
+    def poke_tile_count(self, value=None):
+        if value == None:
+            return None
+        else:
+            addr = expression_evaluator.evaluate_expression(self, self.expressions["tile_count"])
+            self.poke32(addr, value)
+
+    def peek_oldest_actor_addr(self):
+        addr = expression_evaluator.evaluate_expression(self, self.expressions["oldest_actor"])
         return addr
 
-    def peek_newest_sprite_addr(self):
-        ptr = self.peek64(self.code_static_rx[0][0]+0x4000+0x2B2A610)+0x10
-        ptr = self.peek64(ptr)+0x8
-        ptr = self.peek64(ptr)+0x10
-        addr = self.peek64(ptr)-0x28
+    def peek_newest_actor_addr(self):
+        addr = expression_evaluator.evaluate_expression(self, self.expressions["oldest_actor"])
         return addr
 
-    def peek_all_sprites(self):
-        addr = self.peek_oldest_sprite_addr()
-        count = self.peek_sprite_count()[1]
+    def peek_all_actors(self):
+        addr = self.peek_oldest_actor_addr()
+        actor_count = self.peek_actor_count()[1]
+        tile_count = self.peek_tile_count()[1]
         s = []
-        for i in range(count):
-            s.append([addr+constants[1]*i, sprites.Sprite(nx.peek8(addr+constants[1]*i+0x20))])
+        for i in range(2600):
+            try:
+                s.append([addr+0x4C0*i, sprites.Sprite(nx.peek8(addr+0x4C0*i+0x20))])
+            except ValueError:
+                s.append([addr+0x4C0*i, nx.peek8(addr+0x4C0*i+0x20)])
         return s
 
-    class oldest_sprite:
+    class oldest_actor:
         def __init__(self, nx):
             self.nx = nx
             self.update()
 
         def update(self):
-            self.addr = self.nx.peek_oldest_sprite_addr()
+            self.addr = self.nx.peek_oldest_actor_addr()
             self.position = {
-                "x":self.nx.peek32(self.addr),
-                "y":self.nx.peek32(self.addr+0x4)
+                "x": self.nx.peek32(self.addr),
+                "y": self.nx.peek32(self.addr+0x4)
             }
             self.size = {
-                "x":self.nx.peek32(self.addr+0xC),
-                "y":self.nx.peek32(self.addr+0x10)
+                "x": self.nx.peek32(self.addr+0xC),
+                "y": self.nx.peek32(self.addr+0x10)
             }
             self.flags = {
-                "parent":self.nx.peek32(self.addr+0x14),
-                "child":self.nx.peek32(self.addr+0x18)
+                "parent": self.nx.peek32(self.addr+0x14),
+                "child": self.nx.peek32(self.addr+0x18)
             }
             self.extended_data = self.nx.peek32(self.addr+0x1C)
             self.types = {
-                "parent":[
+                "parent": [
                     self.nx.peek8(self.addr+0x20),
                     self.nx.peek8(self.addr+0x21)
                 ],
-                "child":[
+                "child": [
                     self.nx.peek8(self.addr+0x22),
                     self.nx.peek8(self.addr+0x23)
                 ]
             }
             self.placement_flags = []
-            for i in range(6):
-                self.placement_flags.append(self.nx.peek32(self.addr+constants[0]+i))
+            for i in range(8):
+                self.placement_flags.append(self.nx.peek32(self.addr+0x210+i))
 
         def poke_pos_x(self, value=None):
             if value == None:
@@ -326,43 +324,45 @@ class NoexsClient:
                 self.nx.poke8(self.addr+0x22, value)
 
         def poke_placement_flags(self, placement_flags):
-            if not len(placement_flags) == 6:
+            if not len(placement_flags) == 8:
                 return None
             else:
-                for i in range(6):
-                    self.nx.poke32(self.addr+constants[0]+i, placement_flags[i])
+                for i in range(8):
+                    self.nx.poke32(self.addr+0x210+i, placement_flags[i])
 
-    class newest_sprite:
+    class newest_actor:
         def __init__(self, nx):
             self.nx = nx
             self.update()
 
         def update(self):
-            self.addr = self.nx.peek_newest_sprite_addr()
+            self.addr = self.nx.peek_newest_actor_addr()
             self.position = {
-                "x":self.nx.peek32(self.addr),
-                "y":self.nx.peek32(self.addr+0x4)
+                "x": self.nx.peek32(self.addr),
+                "y": self.nx.peek32(self.addr+0x4)
             }
             self.size = {
-                "x":self.nx.peek32(self.addr+0xC),
-                "y":self.nx.peek32(self.addr+0x10)
+                "x": self.nx.peek32(self.addr+0xC),
+                "y": self.nx.peek32(self.addr+0x10)
             }
             self.flags = {
-                "parent":self.nx.peek32(self.addr+0x14),
-                "child":self.nx.peek32(self.addr+0x18)
+                "parent": self.nx.peek32(self.addr+0x14),
+                "child": self.nx.peek32(self.addr+0x18)
             }
             self.extended_data = self.nx.peek32(self.addr+0x1C)
             self.types = {
-                "parent":[
-                    self.nx.peek8(self.addr+0x20)
+                "parent": [
+                    self.nx.peek8(self.addr+0x20),
+                    self.nx.peek8(self.addr+0x21)
                 ],
-                "child":[
-                    self.nx.peek8(self.addr+0x22)
+                "child": [
+                    self.nx.peek8(self.addr+0x22),
+                    self.nx.peek8(self.addr+0x23)
                 ]
             }
             self.placement_flags = []
-            for i in range(6):
-                self.placement_flags.append(self.nx.peek32(self.addr+constants[0]+i))
+            for i in range(8):
+                self.placement_flags.append(self.nx.peek32(self.addr+0x210+i))
 
         def poke_pos_x(self, value=None):
             if value == None:
@@ -419,31 +419,38 @@ class NoexsClient:
                 self.nx.poke8(self.addr+0x22, value)
 
         def poke_placement_flags(self, placement_flags):
-            if not len(placement_flags) == 6:
+            if not len(placement_flags) == 8:
                 return None
             else:
-                for i in range(6):
-                    self.nx.poke32(self.addr+constants[0]+i, placement_flags[i])
+                for i in range(8):
+                    self.nx.poke32(self.addr+0x210+i, placement_flags[i])
 
 def main():
     nx = NoexsClient(["192.168.1.5", "7331"])
-    nx.attach(nx.find_game(0x01009B90006DC000))
+    nx.attach(nx.find_game(title_id))
     nx.resume()
-    nx.find_binary()
-    return nx
+    return nx, nx.find_binary()
 
 if __name__ == "__main__":
-    nx = main()
+    title_id = 0x01009B90006DC000
+    nx, binary = main()
+    nx.expressions = {
+        "timer": [[[[[binary+0x2BEBA08], 0x18], 0x8], 0x10], 0x14],
+        "actor_count": [[[[[binary+0x2A5A918], 0x18], 0x10], 0x8], 0xBFC],
+        "tile_count": [[[[[binary+0x2A5A918], 0x18], 0x10], 0x8], 0xC08],
+        "oldest_actor": [[[[[binary+0x2A5A918], 0x18], 0x10], 0x1A0], 0x8],
+        "newest_actor": [[[[[binary+0x2B2A610], 0x10], 0x8], 0x10], -0x28]
+    }
     for i in range(1, 6):
-        print("SEARCHING FOR SPRITES... (ATTEMPT %s/5)" % i)
+        print("SEARCHING FOR ACTORS... (ATTEMPT %s/5)" % i)
         try:
-            oldest_sprite = nx.oldest_sprite(nx)
-            newest_sprite = nx.newest_sprite(nx)
-            print("SPRITES HAVE BEEN FOUND!")
+            oldest_actor = nx.oldest_actor(nx)
+            newest_actor = nx.newest_actor(nx)
+            print("ACTORS HAVE BEEN FOUND!")
             break
         except ValueError:
             time.sleep(1)
             if i != 5:
                 pass
             else:
-                print("SPRITES COULD NOT BE FOUND!")
+                print("ACTORS COULD NOT BE FOUND!")
