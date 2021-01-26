@@ -6,7 +6,6 @@ import struct
 import enum
 import time
 import threading
-from SMM2 import sprites
 from SMM2 import expression_evaluator
 from SMM2 import expressions
 
@@ -184,21 +183,21 @@ class NoexsClient:
         return self.code_static_rx[0][0]+0x4000
 
     def peek_timer(self):
-        addr = expression_evaluator.evaluate_expression(self, self.expressions["timer"][0])
+        addr = expression_evaluator.evaluate_expression(self, self.expressions["timer"])
         return [addr, self.peek16(addr)]
 
     def poke_timer(self, value=None):
         if value == None:
             return None
         else:
-            addr = expression_evaluator.evaluate_expression(self, self.expressions["timer"][0])
+            addr = expression_evaluator.evaluate_expression(self, self.expressions["timer"])
             self.poke16(addr, value)
 
     def peek_actor_count_overworld(self):
-        addr1 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_enemy_count"][0])
-        addr2 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_item_count"][0])
-        addr3 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_block_count"][0])
-        addr4 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_tile_count"][0])
+        addr1 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_enemy_count"])
+        addr2 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_item_count"])
+        addr3 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_block_count"])
+        addr4 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_tile_count"])
         return {
             "overworld_enemy_count": [addr1, self.peek32(addr1)],
             "overworld_item_count": [addr2, self.peek32(addr2)],
@@ -210,32 +209,32 @@ class NoexsClient:
         if value == None:
             return None
         else:
-            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_enemy_count"][0])
+            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_enemy_count"])
             self.nx.poke32(addr, value)
 
     def poke_overworld_item_count(self, value=None):
         if value == None:
             return None
         else:
-            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_item_count"][0])
+            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_item_count"])
             self.nx.poke32(addr, value)
 
     def poke_overworld_block_count(self, value=None):
         if value == None:
             return None
         else:
-            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_block_count"][0])
+            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_block_count"])
             self.nx.poke32(addr, value)
 
     def poke_overworld_tile_count(self, value=None):
         if value == None:
             return None
         else:
-            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_tile_count"][0])
+            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_tile_count"])
             self.nx.poke32(addr, value)
 
     def peek_newest_actor_addr_overworld(self):
-        addr = expression_evaluator.evaluate_expression(self, self.expressions["newest_overworld_actor"][0])
+        addr = expression_evaluator.evaluate_expression(self, self.expressions["newest_overworld_actor"])
         return addr
 
     class newest_overworld_actor:
@@ -341,10 +340,10 @@ class NoexsClient:
                     self.nx.poke32(self.addr+0x210+i, placement_flags[i])
 
     def peek_actor_count_subworld(self):
-        addr1 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_enemy_count"][0])
-        addr2 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_item_count"][0])
-        addr3 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_block_count"][0])
-        addr4 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_tile_count"][0])
+        addr1 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_enemy_count"])
+        addr2 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_item_count"])
+        addr3 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_block_count"])
+        addr4 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_tile_count"])
         return {
             "overworld_enemy_count": [addr1, self.peek32(addr1)],
             "overworld_item_count": [addr2, self.peek32(addr2)],
@@ -356,32 +355,32 @@ class NoexsClient:
         if value == None:
             return None
         else:
-            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_enemy_count"][0])
+            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_enemy_count"])
             self.nx.poke32(addr, value)
 
     def poke_subworld_item_count(self, value=None):
         if value == None:
             return None
         else:
-            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_item_count"][0])
+            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_item_count"])
             self.nx.poke32(addr, value)
 
     def poke_subworld_block_count(self, value=None):
         if value == None:
             return None
         else:
-            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_block_count"][0])
+            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_block_count"])
             self.nx.poke32(addr, value)
 
     def poke_subworld_tile_count(self, value=None):
         if value == None:
             return None
         else:
-            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_tile_count"][0])
+            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_tile_count"])
             self.nx.poke32(addr, value)
 
     def peek_newest_actor_addr_subworld(self):
-        addr = expression_evaluator.evaluate_expression(self, self.expressions["newest_subworld_actor"][0])
+        addr = expression_evaluator.evaluate_expression(self, self.expressions["newest_subworld_actor"])
         return addr
 
     class newest_subworld_actor:
