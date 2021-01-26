@@ -14,5 +14,5 @@ setuptools.setup(
 	packages = [
 		"SMM2"
 	],
-	install_requires = ["nintendo"]
+	install_requires = ["nintendo", "pycryptodome", "capstone", "keystone-engine"]
 )
