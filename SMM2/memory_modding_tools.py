@@ -8,6 +8,7 @@ import time
 import threading
 from SMM2 import sprites
 from SMM2 import expression_evaluator
+from SMM2 import expressions
 
 Status = enum.IntEnum("Status", ("STOPPED", "RUNNING", "PAUSED"), start=0)
 
@@ -183,68 +184,71 @@ class NoexsClient:
         return self.code_static_rx[0][0]+0x4000
 
     def peek_timer(self):
-        addr = expression_evaluator.evaluate_expression(self, self.expressions["timer"])
+        addr = expression_evaluator.evaluate_expression(self, self.expressions["timer"][0])
         return [addr, self.peek16(addr)]
 
     def poke_timer(self, value=None):
         if value == None:
             return None
         else:
-            addr = expression_evaluator.evaluate_expression(self, self.expressions["timer"])
+            addr = expression_evaluator.evaluate_expression(self, self.expressions["timer"][0])
             self.poke16(addr, value)
 
-    def peek_actor_count(self):
-        addr = expression_evaluator.evaluate_expression(self, self.expressions["actor_count"])
-        return [addr, self.peek32(addr)]
+    def peek_actor_count_overworld(self):
+        addr1 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_enemy_count"][0])
+        addr2 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_item_count"][0])
+        addr3 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_block_count"][0])
+        addr4 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_tile_count"][0])
+        return {
+            "overworld_enemy_count": [addr1, self.peek32(addr1)],
+            "overworld_item_count": [addr2, self.peek32(addr2)],
+            "overworld_block_count": [addr3, self.peek32(addr3)],
+            "overworld_tile_count": [addr4, self.peek32(addr4)]
+        }
 
-    def poke_actor_count(self, value=None):
+    def poke_overworld_enemy_count(self, value=None):
         if value == None:
             return None
         else:
-            addr = expression_evaluator.evaluate_expression(self, self.expressions["actor_count"])
-            self.poke32(addr, value)
+            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_enemy_count"][0])
+            self.nx.poke32(addr, value)
 
-    def peek_tile_count(self):
-        addr = expression_evaluator.evaluate_expression(self, self.expressions["tile_count"])
-        return [addr, self.peek32(addr)]
-
-    def poke_tile_count(self, value=None):
+    def poke_overworld_item_count(self, value=None):
         if value == None:
             return None
         else:
-            addr = expression_evaluator.evaluate_expression(self, self.expressions["tile_count"])
-            self.poke32(addr, value)
+            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_item_count"][0])
+            self.nx.poke32(addr, value)
 
-    def peek_oldest_actor_addr(self):
-        addr = expression_evaluator.evaluate_expression(self, self.expressions["oldest_actor"])
+    def poke_overworld_block_count(self, value=None):
+        if value == None:
+            return None
+        else:
+            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_block_count"][0])
+            self.nx.poke32(addr, value)
+
+    def poke_overworld_tile_count(self, value=None):
+        if value == None:
+            return None
+        else:
+            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_tile_count"][0])
+            self.nx.poke32(addr, value)
+
+    def peek_newest_actor_addr_overworld(self):
+        addr = expression_evaluator.evaluate_expression(self, self.expressions["newest_overworld_actor"][0])
         return addr
 
-    def peek_newest_actor_addr(self):
-        addr = expression_evaluator.evaluate_expression(self, self.expressions["oldest_actor"])
-        return addr
-
-    def peek_all_actors(self):
-        addr = self.peek_oldest_actor_addr()
-        actor_count = self.peek_actor_count()[1]
-        tile_count = self.peek_tile_count()[1]
-        s = []
-        for i in range(2600):
-            try:
-                s.append([addr+0x4C0*i, sprites.Sprite(nx.peek8(addr+0x4C0*i+0x20))])
-            except ValueError:
-                s.append([addr+0x4C0*i, nx.peek8(addr+0x4C0*i+0x20)])
-        return s
-
-    class oldest_actor:
+    class newest_overworld_actor:
         def __init__(self, nx):
             self.nx = nx
             self.update()
 
         def update(self):
-            self.addr = self.nx.peek_oldest_actor_addr()
+            self.addr = self.nx.peek_newest_actor_addr_overworld()
             self.position = {
                 "x": self.nx.peek32(self.addr),
-                "y": self.nx.peek32(self.addr+0x4)
+                "y": self.nx.peek32(self.addr+0x4),
+                "z": self.nx.peek32(self.addr+0x4)
             }
             self.size = {
                 "x": self.nx.peek32(self.addr+0xC),
@@ -280,6 +284,12 @@ class NoexsClient:
                 return None
             else:
                 self.nx.poke32(self.addr+0x4, value)
+
+        def poke_pos_z(self, value=None):
+            if value == None:
+                return None
+            else:
+                self.nx.poke32(self.addr+0x8, value)
 
         def poke_width(self, value=None):
             if value == None:
@@ -330,16 +340,61 @@ class NoexsClient:
                 for i in range(8):
                     self.nx.poke32(self.addr+0x210+i, placement_flags[i])
 
-    class newest_actor:
+    def peek_actor_count_subworld(self):
+        addr1 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_enemy_count"][0])
+        addr2 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_item_count"][0])
+        addr3 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_block_count"][0])
+        addr4 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_tile_count"][0])
+        return {
+            "overworld_enemy_count": [addr1, self.peek32(addr1)],
+            "overworld_item_count": [addr2, self.peek32(addr2)],
+            "overworld_block_count": [addr3, self.peek32(addr3)],
+            "overworld_tile_count": [addr4, self.peek32(addr4)]
+        }
+
+    def poke_subworld_enemy_count(self, value=None):
+        if value == None:
+            return None
+        else:
+            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_enemy_count"][0])
+            self.nx.poke32(addr, value)
+
+    def poke_subworld_item_count(self, value=None):
+        if value == None:
+            return None
+        else:
+            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_item_count"][0])
+            self.nx.poke32(addr, value)
+
+    def poke_subworld_block_count(self, value=None):
+        if value == None:
+            return None
+        else:
+            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_block_count"][0])
+            self.nx.poke32(addr, value)
+
+    def poke_subworld_tile_count(self, value=None):
+        if value == None:
+            return None
+        else:
+            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_tile_count"][0])
+            self.nx.poke32(addr, value)
+
+    def peek_newest_actor_addr_subworld(self):
+        addr = expression_evaluator.evaluate_expression(self, self.expressions["newest_subworld_actor"][0])
+        return addr
+
+    class newest_subworld_actor:
         def __init__(self, nx):
             self.nx = nx
             self.update()
 
         def update(self):
-            self.addr = self.nx.peek_newest_actor_addr()
+            self.addr = self.nx.peek_newest_actor_addr_subworld()
             self.position = {
                 "x": self.nx.peek32(self.addr),
-                "y": self.nx.peek32(self.addr+0x4)
+                "y": self.nx.peek32(self.addr+0x4),
+                "z": self.nx.peek32(self.addr+0x4)
             }
             self.size = {
                 "x": self.nx.peek32(self.addr+0xC),
@@ -375,6 +430,12 @@ class NoexsClient:
                 return None
             else:
                 self.nx.poke32(self.addr+0x4, value)
+
+        def poke_pos_z(self, value=None):
+            if value == None:
+                return None
+            else:
+                self.nx.poke32(self.addr+0x8, value)
 
         def poke_width(self, value=None):
             if value == None:
@@ -424,6 +485,12 @@ class NoexsClient:
             else:
                 for i in range(8):
                     self.nx.poke32(self.addr+0x210+i, placement_flags[i])
+
+def float_to_hex(f):
+    return struct.unpack('<I', struct.pack('<f', f))[0]
+
+def hex_to_float(h):
+    return struct.unpack('!f', struct.pack('>I', h))[0]
 
 def main():
     nx = NoexsClient(["192.168.1.5", "7331"])
@@ -434,23 +501,32 @@ def main():
 if __name__ == "__main__":
     title_id = 0x01009B90006DC000
     nx, binary = main()
-    nx.expressions = {
-        "timer": [[[[[binary+0x2BEBA08], 0x18], 0x8], 0x10], 0x14],
-        "actor_count": [[[[[binary+0x2A5A918], 0x18], 0x10], 0x8], 0xBFC],
-        "tile_count": [[[[[binary+0x2A5A918], 0x18], 0x10], 0x8], 0xC08],
-        "oldest_actor": [[[[[binary+0x2A5A918], 0x18], 0x10], 0x1A0], 0x8],
-        "newest_actor": [[[[[binary+0x2B2A610], 0x10], 0x8], 0x10], -0x28]
-    }
+    nx.expressions = expressions.expressions(binary)
+    print("#%s#" % ("="*30))
     for i in range(1, 6):
-        print("SEARCHING FOR ACTORS... (ATTEMPT %s/5)" % i)
+        print("SEARCHING FOR OVERWORLD ACTORS... (ATTEMPT %s/5)" % i)
         try:
-            oldest_actor = nx.oldest_actor(nx)
-            newest_actor = nx.newest_actor(nx)
-            print("ACTORS HAVE BEEN FOUND!")
+            newest_overworld_actor = nx.newest_overworld_actor(nx) # newest actor placed in the overworld editor
+            print("OVERWORLD ACTORS HAVE BEEN FOUND!")
+            time.sleep(1)
             break
         except ValueError:
             time.sleep(1)
             if i != 5:
                 pass
             else:
-                print("ACTORS COULD NOT BE FOUND!")
+                print("OVERWORLD ACTORS COULD NOT BE FOUND!")
+
+    for i in range(1, 6):
+        print("SEARCHING FOR SUBWORLD ACTORS... (ATTEMPT %s/5)" % i)
+        try:
+            newest_subworld_actor = nx.newest_subworld_actor(nx) # newest actor placed in the subworld editor
+            print("SUBWORLD ACTORS HAVE BEEN FOUND!")
+            time.sleep(1)
+            break
+        except ValueError:
+            time.sleep(1)
+            if i != 5:
+                pass
+            else:
+                print("SUBWORLD ACTORS COULD NOT BE FOUND!")
