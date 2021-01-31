@@ -17,23 +17,23 @@ def main():
         print(SMM2Course.HEADER.DESCRIPTION)
         print(SMM2Course.HEADER.TIME_LIMIT)
 
-        for Sprite in SMM2Course.OVERWORLD.SPRITES:
-                print(Sprite.POSITION)
-                print(Sprite.SIZE)
-                print(Sprite.FLAGS)
-                print(Sprite.EXTENDED_DATA)
-                print(Sprite.TYPES)
-                print(Sprite.LINK_ID)
-                print(Sprite.OTOASOBI_ID)
+        for Actor in SMM2Course.OVERWORLD.ACTORS:
+                print(Actor.POSITION)
+                print(Actor.SIZE)
+                print(Actor.FLAGS)
+                print(Actor.EXTENDED_DATA)
+                print(Actor.TYPES)
+                print(Actor.LINK_ID)
+                print(Actor.OTOASOBI_ID)
 
-        for Sprite in SMM2Course.SUBWORLD.SPRITES:
-                print(Sprite.POSITION)
-                print(Sprite.SIZE)
-                print(Sprite.FLAGS)
-                print(Sprite.EXTENDED_DATA)
-                print(Sprite.TYPES)
-                print(Sprite.LINK_ID)
-                print(Sprite.OTOASOBI_ID)
+        for Actor in SMM2Course.SUBWORLD.ACTORS:
+                print(Actor.POSITION)
+                print(Actor.SIZE)
+                print(Actor.FLAGS)
+                print(Actor.EXTENDED_DATA)
+                print(Actor.TYPES)
+                print(Actor.LINK_ID)
+                print(Actor.OTOASOBI_ID)
 
 if __name__ == "__main__":
         main()

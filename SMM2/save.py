@@ -6,7 +6,6 @@ import zlib
 from SMM2 import streams
 from SMM2 import encryption
 from SMM2 import keytables
-from SMM2 import sprites
 from SMM2 import data
 
 class Save:
@@ -27,20 +26,20 @@ class Save:
             self.stream.seek(0x50)
             self.MII_DATA = self.stream.read(0x58, codecs.BOM_UTF16_BE)
             self.stream.seek(0xB920)
-            self.OWN_COURSES = []
-            self.UNKNOWN_COURSES = []
-            self.DOWNLOADED_COURSES = []
+            self.own_courses = []
+            self.unkown_courses = []
+            self.downloaded_courses = []
             self.stream.seek(0xB920)
             for i in range(0x3C):
-                self.OWN_COURSES.append([self.stream.read8(), SLOT_STATUS(self.stream.read8())])
+                self.own_courses.append([self.stream.read8(), SLOT_STATUS(self.stream.read8())])
                 self.stream.skip(0x6)
 
             for i in range(0x3C):
-                self.UNKNOWN_COURSES.append([self.stream.read8(), SLOT_STATUS(self.stream.read8())])
+                self.unkown_courses.append([self.stream.read8(), SLOT_STATUS(self.stream.read8())])
                 self.stream.skip(0x6)
 
             for i in range(0x3C):
-                self.DOWNLOADED_COURSES.append([self.stream.read8(), SLOT_STATUS(self.stream.read8())])
+                self.downloaded_courses.append([self.stream.read8(), SLOT_STATUS(self.stream.read8())])
                 self.stream.skip(0x6)
 
 class SLOT_STATUS(enum.Enum):

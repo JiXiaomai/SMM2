@@ -4,7 +4,7 @@ import struct
 from SMM2 import streams
 from SMM2 import encryption
 from SMM2 import keytables
-from SMM2 import sprites
+from SMM2 import actors
 from SMM2 import data
 
 class Course:
@@ -111,7 +111,7 @@ class CourseArea:
                 "BOTTOM":self.stream.read32()
             }
             self.AREA_FLAGS = self.stream.read32()
-            self.SPRITE_COUNT = self.stream.read32()
+            self.ACTOR_COUNT = self.stream.read32()
             self.OTOASOBI_COUNT = self.stream.read32()
             self.SNAKE_BLOCK_COUNT = self.stream.read32()
             self.CLEAR_DOKAN_COUNT = self.stream.read32()
@@ -122,7 +122,7 @@ class CourseArea:
             self.TILE_COUNT = self.stream.read32()
             self.RAIL_COUNT = self.stream.read32()
             self.ICICLE_COUNT = self.stream.read32()
-            self.SPRITE_DATA = self.stream.substream(0x20 * 2600, codecs.BOM_UTF16_BE)
+            self.ACTOR_DATA = self.stream.substream(0x20 * 2600, codecs.BOM_UTF16_BE)
             self.OTOASOBI_DATA = self.stream.substream(0x4 * 300, codecs.BOM_UTF16_BE)
             self.SNAKE_BLOCK_DATA = self.stream.substream(0x3C4 * 5, codecs.BOM_UTF16_BE)
             self.CLEAR_DOKAN_DATA = self.stream.substream(0x124 * 200, codecs.BOM_UTF16_BE)
@@ -132,15 +132,15 @@ class CourseArea:
             self.TILE_DATA = self.stream.substream(0x4 * 4000, codecs.BOM_UTF16_BE)
             self.RAIL_DATA = self.stream.substream(0xC * 1500, codecs.BOM_UTF16_BE)
             self.ICICLE_DATA = self.stream.substream(0x4 * 300, codecs.BOM_UTF16_BE)
-            self.SPRITES = []
-            for i in range(self.SPRITE_COUNT):
-                self.SPRITES.append(Sprite(self.SPRITE_DATA.read(0x20, codecs.BOM_UTF16_BE)))
+            self.ACTORS = []
+            for i in range(self.ACTOR_COUNT):
+                self.ACTORS.append(Actor(self.ACTOR_DATA.read(0x20, codecs.BOM_UTF16_BE)))
 
     def save(self):
         self.stream = streams.StreamOut()
         self.stream.byteorder = codecs.BOM_UTF16_LE
 
-class Sprite:
+class Actor:
     def __init__(self, data=None):
         if not data:
             return None

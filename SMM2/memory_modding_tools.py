@@ -1,40 +1,109 @@
 # https://github.com/Treeki/CylindricalEarth/blob/master/pynoexs.py
 # https://github.com/Treeki/CylindricalEarth/blob/master/debug_tools.py
 
-import socket
-import struct
-import enum
 import time
+import enum
+import struct
+import socket
 import threading
-from SMM2 import expression_evaluator
-from SMM2 import expressions
+from SMM2.expression_evaluator import handle_evaluate_expression
+from SMM2.expressions import get_expressions
 
-Status = enum.IntEnum("Status", ("STOPPED", "RUNNING", "PAUSED"), start=0)
+Status = enum.IntEnum('Status', ('STOPPED', 'RUNNING', 'PAUSED'), start=0)
 
-Command = enum.IntEnum("Command", (
-    "STATUS", "POKE8", "POKE16", "POKE32", "POKE64",
-    "READ", "WRITE", "CONTINUE", "PAUSE",
-    "ATTACH", "DETACH", "QUERY_MEMORY", "QUERY_MEMORY_MULTI",
-    "CURRENT_PID", "GET_ATTACHED_PID", "GET_PIDS", "GET_TITLEID",
-    "DISCONNECT", "READ_MULTI", "SET_BREAKPOINT"))
+Command = enum.IntEnum('Command', (
+    'STATUS', 'POKE8', 'POKE16', 'POKE32', 'POKE64',
+    'READ', 'WRITE', 'CONTINUE', 'PAUSE',
+    'ATTACH', 'DETACH', 'QUERY_MEMORY', 'QUERY_MEMORY_MULTI',
+    'CURRENT_PID', 'GET_ATTACHED_PID', 'GET_PIDS', 'GET_TITLEID',
+    'DISCONNECT', 'READ_MULTI', 'SET_BREAKPOINT'))
 
-MemoryType = enum.IntEnum("MemoryType", (
-    "UNMAPPED", "IO", "NORMAL", "CODE_STATIC", "CODE_MUTABLE",
-    "HEAP", "SHARED", "WEIRD_MAPPED", "MODULE_CODE_STATIC", "MODULE_CODE_MUTABLE",
-    "IPC_BUFFER_0", "MAPPED", "THREAD_LOCAL", "ISOLATED_TRANSFER", "TRANSFER",
-    "PROCESS", "RESERVED", "IPC_BUFFER_1", "IPC_BUFFER_3", "KERNEL_STACK",
-    "CODE_READ_ONLY", "CODE_WRITABLE"
+MemoryType = enum.IntEnum('MemoryType', (
+    'UNMAPPED', 'IO', 'NORMAL', 'CODE_STATIC', 'CODE_MUTABLE',
+    'HEAP', 'SHARED', 'WEIRD_MAPPED', 'MODULE_CODE_STATIC', 'MODULE_CODE_MUTABLE',
+    'IPC_BUFFER_0', 'MAPPED', 'THREAD_LOCAL', 'ISOLATED_TRANSFER', 'TRANSFER',
+    'PROCESS', 'RESERVED', 'IPC_BUFFER_1', 'IPC_BUFFER_3', 'KERNEL_STACK',
+    'CODE_READ_ONLY', 'CODE_WRITABLE'
 ), start=0)
 
 class NoexsClient:
-    def __init__(self, address):
-        self.sock = socket.create_connection(address)
+    def __init__(self, *args):
+        if len(args) != 1:
+            return None
+        else:
+            self.sock = socket.create_connection(args[0])
+            self.address_lock = self.addr_lock(self, [])
+            self.attach(self.find_game(0x01009B90006DC000))
+            self.resume()
+            self.binary = self.find_binary()
+            self.expressions = get_expressions(self.binary)
 
-    def _recvall(self, amount):
-        buf = b""
-        while len(buf) < amount:
-            buf += self.sock.recv(amount-len(buf))
-        return buf
+    class addr_lock(threading.Thread):
+        def __init__(self, *args):
+            super().__init__()
+            self.__flag = threading.Event()
+            self.__flag.set()
+            self.__running = threading.Event()
+            self.__running.set()
+            self.args = args
+
+        def run(self):
+            while self.__running.isSet():
+                self.__flag.wait()
+                for i in self.args[1]:
+                    if i[1] == 1:
+                        self.args[0].poke8(i[0], i[2])
+                    elif i[1] == 2:
+                        self.args[0].poke16(i[0], i[2])
+                    elif i[1] == 4:
+                        self.args[0].poke32(i[0], i[2])
+                    elif i[1] == 8:
+                        self.args[0].poke64(i[0], i[2])
+                    else:
+                        pass
+
+        def pause(self):
+            self.__flag.clear()
+
+        def resume(self):
+            self.__flag.set()
+
+        def stop(self):
+            self.__flag.set()
+            self.__flag.clear()
+
+        def add(self, *args):
+            if len(args) != 3:
+                return None
+            else:
+                for i in self.args[1]:
+                    if i[0] == args[0]:
+                        i[1] = args[1]
+                        i[2] = args[2]
+                        return None
+                self.args[1].append([args[0], args[1], args[2]])
+
+        def remove(self, *args):
+            if len(args) != 1:
+                return None
+            else:
+                for i in self.args[1]:
+                    if i[0] == args[0]:
+                        self.args[1].pop(self.args[1].index(i))
+                    else:
+                        pass
+
+        def clear(self):
+            self.args[1].clear()
+
+    def _recvall(self, amount=None):
+        if amount == None:
+            return None
+        else:
+            buf = b""
+            while len(buf) < amount:
+                buf += self.sock.recv(amount-len(buf))
+            return buf
 
     def _recv_result(self):
         value = struct.unpack("<I", self._recvall(4))[0]
@@ -53,7 +122,7 @@ class NoexsClient:
             for i in range(0, len(indata), 2):
                 for j in range(indata[i+1]):
                     outdata[pos+j] = indata[i]
-                pos += indata[i+1]
+                pos+=indata[i+1]
             return bytes(outdata)
 
     def _assert_result_ok(self, throwaway=False):
@@ -64,85 +133,144 @@ class NoexsClient:
             raise ValueError("connection error %d,%d" % result)
 
     def get_status(self):
+        self.address_lock.pause()
         self.sock.sendall(struct.pack("<B", int(Command.STATUS)))
+        self.address_lock.resume()
         status, major, minor, patch = struct.unpack("<BBBB", self._recvall(4))
         self._assert_result_ok()
         return (Status(status), major, minor, patch)
 
-    def poke8(self, addr, value):
-        self.sock.sendall(struct.pack("<BQB", int(Command.POKE8), addr, value))
-        self._assert_result_ok()
+    def peek8(self, *args):
+        if len(args) != 1:
+            return None
+        else:
+            return struct.unpack("<B", self.read(args[0], 1))[0]
 
-    def poke16(self, addr, value):
-        self.sock.sendall(struct.pack("<BQH", int(Command.POKE16), addr, value))
-        self._assert_result_ok()
+    def poke8(self, *args):
+        if len(args) != 2:
+            return None
+        else:
+            self.address_lock.pause()
+            self.sock.sendall(struct.pack("<BQB", int(Command.POKE8), args[0], args[1]))
+            self.address_lock.resume()
+            self._assert_result_ok()
 
-    def poke32(self, addr, value):
-        self.sock.sendall(struct.pack("<BQI", int(Command.POKE32), addr, value))
-        self._assert_result_ok()
+    def peek16(self, *args):
+        if len(args) != 1:
+            return None
+        else:
+            return struct.unpack("<H", self.read(args[0], 2))[0]
 
-    def poke64(self, addr, value):
-        self.sock.sendall(struct.pack("<BQQ", int(Command.POKE64), addr, value))
-        self._assert_result_ok()
+    def poke16(self, *args):
+        if len(args) != 2:
+            return None
+        else:
+            self.address_lock.pause()
+            self.sock.sendall(struct.pack("<BQH", int(Command.POKE16), args[0], args[1]))
+            self.address_lock.resume()
+            self._assert_result_ok()
 
-    def peek8(self, addr):
-        return struct.unpack("<B", self.read(addr, 1))[0]
+    def peek32(self, *args):
+        if len(args) != 1:
+            return None
+        else:
+            return struct.unpack("<I", self.read(args[0], 4))[0]
 
-    def peek16(self, addr):
-        return struct.unpack("<H", self.read(addr, 2))[0]
+    def poke32(self, *args):
+        if len(args) != 2:
+            return None
+        else:
+            self.address_lock.pause()
+            self.sock.sendall(struct.pack("<BQI", int(Command.POKE32), args[0], args[1]))
+            self.address_lock.resume()
+            self._assert_result_ok()
 
-    def peek32(self, addr):
-        return struct.unpack("<I", self.read(addr, 4))[0]
+    def peek64(self, *args):
+        if len(args) != 1:
+            return None
+        else:
+            return struct.unpack("<Q", self.read(args[0], 8))[0]
 
-    def peek64(self, addr):
-        return struct.unpack("<Q", self.read(addr, 8))[0]
+    def poke64(self, *args):
+        if len(args) != 2:
+            return None
+        else:
+            self.address_lock.pause()
+            self.sock.sendall(struct.pack("<BQQ", int(Command.POKE64), args[0], args[1]))
+            self.address_lock.resume()
+            self._assert_result_ok()
 
-    def read(self, addr, size):
-        self.sock.sendall(struct.pack("<BQI", int(Command.READ), addr, size))
-        self._assert_result_ok(throwaway=True)
-
-        pos = 0
-        result = b""
-        while len(result) < size:
+    def read(self, *args):
+        if len(args) != 2:
+            return None
+        else:
+            self.address_lock.pause()
+            self.sock.sendall(struct.pack("<BQI", int(Command.READ), args[0], args[1]))
+            self.address_lock.resume()
             self._assert_result_ok(throwaway=True)
-            result += self._recv_compressed()
-        self._recv_result()
-        return result
+
+            pos = 0
+            result = b""
+            while len(result) < args[1]:
+                self._assert_result_ok(throwaway=True)
+                result += self._recv_compressed()
+            self._recv_result()
+            return result
 
     def resume(self):
+        self.address_lock.pause()
         self.sock.sendall(struct.pack("<B", int(Command.CONTINUE)))
+        self.address_lock.resume()
         self._assert_result_ok()
 
     def pause(self):
+        self.address_lock.pause()
         self.sock.sendall(struct.pack("<B", int(Command.PAUSE)))
+        self.address_lock.resume()
         self._assert_result_ok()
 
-    def attach(self, pid):
-        self.sock.sendall(struct.pack("<BQ", int(Command.ATTACH), pid))
-        self._assert_result_ok()
+    def attach(self, *args):
+        if len(args) != 1:
+            return None
+        else:
+            self.address_lock.pause()
+            self.sock.sendall(struct.pack("<BQ", int(Command.ATTACH), args[0]))
+            self.address_lock.resume()
+            self._assert_result_ok()
 
     def detach(self):
+        self.address_lock.pause()
         self.sock.sendall(struct.pack("<B", int(Command.DETACH)))
+        self.address_lock.resume()
         self._assert_result_ok()
 
     def get_pids(self):
+        self.address_lock.pause()
         self.sock.sendall(struct.pack("<B", int(Command.GET_PIDS)))
+        self.address_lock.resume()
         count = struct.unpack("<I", self._recvall(4))[0]
         if count > 0:
-            pids = list(struct.unpack("<%dQ" % count, self._recvall(8*count)))
+            pids = list(struct.unpack("<%dQ" % count, self._recvall(8 * count)))
         else:
             pids = []
         self._assert_result_ok()
         return pids
 
-    def get_title_id(self, pid):
-        self.sock.sendall(struct.pack("<BQ", int(Command.GET_TITLEID), pid))
-        tid = struct.unpack("<Q", self._recvall(8))[0]
-        self._assert_result_ok()
-        return tid
+    def get_title_id(self, *args):
+        if len(args) != 1:
+            return None
+        else:
+            self.address_lock.pause()
+            self.sock.sendall(struct.pack("<BQ", int(Command.GET_TITLEID), args[0]))
+            self.address_lock.resume()
+            tid = struct.unpack("<Q", self._recvall(8))[0]
+            self._assert_result_ok()
+            return tid
 
     def get_memory_info(self, start=0, max=10000):
+        self.address_lock.pause()
         self.sock.sendall(struct.pack("<BQI", int(Command.QUERY_MEMORY_MULTI), start, max))
+        self.address_lock.resume()
         results = []
         for i in range(max):
             addr, size, typ, perm = struct.unpack("<QQII", self._recvall(24))
@@ -155,377 +283,353 @@ class NoexsClient:
         self._recv_result()
         return results
 
-    def find_game(self, title_id):
-        for pid in reversed(self.get_pids()):
-            if self.get_title_id(pid) == title_id:
-                return pid
+    def find_game(self, *args):
+        if len(args) != 1:
+            return None
+        else:
+            for pid in reversed(self.get_pids()):
+                if self.get_title_id(pid) == args[0]:
+                    return pid
         return None
 
     def find_binary(self):
         self.code_static_rx = []
         self.code_static_r = []
         self.code_mutable = []
-
         for addr, size, typ, perm in self.get_memory_info():
+            print('%10x %10x %d %r' % (addr, size, perm, typ))
             if typ == MemoryType.CODE_STATIC:
                 if perm == 5:
-                    self.code_static_rx.append((addr,size))
+                    self.code_static_rx.append((addr, size))
                 elif perm == 1:
-                    self.code_static_r.append((addr,size))
+                    self.code_static_r.append((addr, size))
             elif typ == MemoryType.CODE_MUTABLE:
                 self.code_mutable.append((addr, size))
 
         text, rodata, data = self.code_static_rx[1], self.code_static_r[1], self.code_mutable[1]
-        print("TEXT: %10x .. %10x" % text)
-        print("RODATA: %10x .. %10x" % rodata)
-        print("DATA: %10x .. %10x" % data)
+        print('TEXT: %10x .. %10x' % text)
+        print('RODATA: %10x .. %10x' % rodata)
+        print('DATA: %10x .. %10x' % data)
 
         return self.code_static_rx[0][0]+0x4000
 
-    def peek_timer(self):
-        addr = expression_evaluator.evaluate_expression(self, self.expressions["timer"])
+    def peek_player_position_edit(self, *args):
+        addr = handle_evaluate_expression(self, self.expressions[11])
+        return [addr, (self.peek32(addr), self.peek32(addr+0x4))]
+
+    def poke_player_position_edit(self, *args):
+        addr = handle_evaluate_expression(self, self.expressions[11])
+        if len(args[0]) != 2:
+            return None
+        else:
+            for i in range(2):
+                self.poke32(addr+0x4*i, args[0][i])
+
+    def peek_player_position_play(self, *args):
+        addr = handle_evaluate_expression(self, self.expressions[13])
+        return [addr, (self.peek32(addr), self.peek32(addr+0x4))]
+
+    def poke_player_position_play(self, *args):
+        addr = handle_evaluate_expression(self, self.expressions[13])
+        if len(args[0]) != 2:
+            return None
+        else:
+            for i in range(2):
+                self.poke32(addr+0x4*i, args[0][i])
+
+    def peek_timer(self, *args):
+        addr = handle_evaluate_expression(self, self.expressions[0])
         return [addr, self.peek16(addr)]
 
-    def poke_timer(self, value=None):
-        if value == None:
-            return None
-        else:
-            addr = expression_evaluator.evaluate_expression(self, self.expressions["timer"])
-            self.poke16(addr, value)
+    def poke_timer(self, *args):
+        addr = handle_evaluate_expression(self, self.expressions[0])
+        self.poke16(addr, args[0])
 
-    def peek_actor_count_overworld(self):
-        addr1 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_enemy_count"])
-        addr2 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_item_count"])
-        addr3 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_block_count"])
-        addr4 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_tile_count"])
-        return {
-            "overworld_enemy_count": [addr1, self.peek32(addr1)],
-            "overworld_item_count": [addr2, self.peek32(addr2)],
-            "overworld_block_count": [addr3, self.peek32(addr3)],
-            "overworld_tile_count": [addr4, self.peek32(addr4)]
-        }
+    def peek_overworld_enemy_count(self, *args):
+        addr = handle_evaluate_expression(self, self.expressions[1])
+        return [addr, self.peek32(addr)]
 
-    def poke_overworld_enemy_count(self, value=None):
-        if value == None:
-            return None
-        else:
-            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_enemy_count"])
-            self.nx.poke32(addr, value)
+    def poke_overworld_enemy_count(self, *args):
+        addr = handle_evaluate_expression(self, self.expressions[1])
+        self.poke32(addr, args[0])
 
-    def poke_overworld_item_count(self, value=None):
-        if value == None:
-            return None
-        else:
-            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_item_count"])
-            self.nx.poke32(addr, value)
+    def peek_subworld_enemy_count(self, *args):
+        addr = handle_evaluate_expression(self, self.expressions[2])
+        return [addr, self.peek32(addr)]
 
-    def poke_overworld_block_count(self, value=None):
-        if value == None:
-            return None
-        else:
-            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_block_count"])
-            self.nx.poke32(addr, value)
+    def poke_subworld_enemy_count(self, *args):
+        addr = handle_evaluate_expression(self, self.expressions[2])
+        self.poke32(addr, args[0])
 
-    def poke_overworld_tile_count(self, value=None):
-        if value == None:
-            return None
-        else:
-            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_tile_count"])
-            self.nx.poke32(addr, value)
+    def peek_overworld_item_count(self, *args):
+        addr = handle_evaluate_expression(self, self.expressions[3])
+        return [addr, self.peek32(addr)]
 
-    def peek_newest_actor_addr_overworld(self):
-        addr = expression_evaluator.evaluate_expression(self, self.expressions["newest_overworld_actor"])
+    def poke_overworld_item_count(self, *args):
+        addr = handle_evaluate_expression(self, self.expressions[3])
+        self.poke32(addr, args[0])
+
+    def peek_subworld_item_count(self, *args):
+        addr = handle_evaluate_expression(self, self.expressions[4])
+        return [addr, self.peek32(addr)]
+
+    def poke_subworld_item_count(self, *args):
+        addr = handle_evaluate_expression(self, self.expressions[4])
+        self.poke32(addr, args[0])
+
+    def peek_overworld_block_count(self, *args):
+        addr = handle_evaluate_expression(self, self.expressions[5])
+        return [addr, self.peek32(addr)]
+
+    def poke_overworld_block_count(self, *args):
+        addr = handle_evaluate_expression(self, self.expressions[5])
+        self.poke32(addr, args[0])
+
+    def peek_subworld_block_count(self, *args):
+        addr = handle_evaluate_expression(self, self.expressions[6])
+        return [addr, self.peek32(addr)]
+
+    def poke_subworld_block_count(self, *args):
+        addr = handle_evaluate_expression(self, self.expressions[6])
+        self.poke32(addr, args[0])
+
+    def peek_overworld_tile_count(self, *args):
+        addr = handle_evaluate_expression(self, self.expressions[7])
+        return [addr, self.peek32(addr)]
+
+    def poke_overworld_tile_count(self, *args):
+        addr = handle_evaluate_expression(self, self.expressions[7])
+        self.poke32(addr, args[0])
+
+    def peek_subworld_tile_count(self, *args):
+        addr = handle_evaluate_expression(self, self.expressions[8])
+        return [addr, self.peek32(addr)]
+
+    def poke_subworld_tile_count(self, *args):
+        addr = handle_evaluate_expression(self, self.expressions[8])
+        self.poke32(addr, args[0])
+
+    def peek_newest_overworld_actor_addr(self, *args):
+        addr = handle_evaluate_expression(self, self.expressions[9])
+        return addr
+
+    def peek_newest_subworld_actor_addr(self, *args):
+        addr = handle_evaluate_expression(self, self.expressions[10])
         return addr
 
     class newest_overworld_actor:
-        def __init__(self, nx):
-            self.nx = nx
-            self.update()
+        def __init__(self, *args):
+            if len(args) != 2:
+                return None
+            else:
+                self.args = args
+                self.update()
 
         def update(self):
-            self.addr = self.nx.peek_newest_actor_addr_overworld()
+            self.addr = self.args[0].peek_newest_overworld_actor_addr()
             self.position = {
-                "x": self.nx.peek32(self.addr),
-                "y": self.nx.peek32(self.addr+0x4),
-                "z": self.nx.peek32(self.addr+0x4)
+                "x": [self.addr, self.args[0].peek32(self.addr)],
+                "y": [self.addr+0x4, self.args[0].peek32(self.addr+0x4)],
+                "z": [self.addr+0x8, self.args[0].peek32(self.addr+0x8)]
             }
             self.size = {
-                "x": self.nx.peek32(self.addr+0xC),
-                "y": self.nx.peek32(self.addr+0x10)
+                "x": [self.addr+0xC, self.args[0].peek32(self.addr+0xC)],
+                "y": [self.addr+0x10, self.args[0].peek32(self.addr+0x10)]
             }
             self.flags = {
-                "parent": self.nx.peek32(self.addr+0x14),
-                "child": self.nx.peek32(self.addr+0x18)
+                "parent": [self.addr+0x14, self.args[0].peek32(self.addr+0x14)],
+                "child": [self.addr+0x18, self.args[0].peek32(self.addr+0x18)]
             }
-            self.extended_data = self.nx.peek32(self.addr+0x1C)
+            self.extended_data = [self.addr+0x1C, self.args[0].peek32(self.addr+0x1C)]
             self.types = {
                 "parent": [
-                    self.nx.peek8(self.addr+0x20),
-                    self.nx.peek8(self.addr+0x21)
+                    [self.addr+0x20, self.args[0].peek8(self.addr+0x20)],
+                    [self.args[0].peek8(self.addr+0x21), self.addr+0x21]
                 ],
                 "child": [
-                    self.nx.peek8(self.addr+0x22),
-                    self.nx.peek8(self.addr+0x23)
+                    [self.addr+0x22, self.args[0].peek8(self.addr+0x22)],
+                    [self.addr+0x23, self.args[0].peek8(self.addr+0x23)]
                 ]
             }
             self.placement_flags = []
             for i in range(8):
-                self.placement_flags.append(self.nx.peek32(self.addr+0x210+i))
+                self.placement_flags.append(self.args[0].peek32(self.addr+0x210+i))
 
-        def poke_pos_x(self, value=None):
-            if value == None:
+        def poke_pos_x(self, *args):
+            if len(args) != 1:
                 return None
             else:
-                self.nx.poke32(self.addr, value)
+                self.args[0].poke32(self.addr, args[0])
 
-        def poke_pos_y(self, value=None):
-            if value == None:
+        def poke_pos_y(self, *args):
+            if len(args) != 1:
                 return None
             else:
-                self.nx.poke32(self.addr+0x4, value)
+                self.args[0].poke32(self.addr+0x4, args[0])
 
-        def poke_pos_z(self, value=None):
-            if value == None:
+        def poke_pos_z(self, *args):
+            if len(args) != 1:
                 return None
             else:
-                self.nx.poke32(self.addr+0x8, value)
+                self.args[0].poke32(self.addr+0x8, args[0])
 
-        def poke_width(self, value=None):
-            if value == None:
+        def poke_width(self, *args):
+            if len(args) != 1:
                 return None
             else:
-                self.nx.poke32(self.addr+0xC, value)
+                self.args[0].poke32(self.addr+0xC, args[0])
 
-        def poke_height(self, value=None):
-            if value == None:
+        def poke_height(self, *args):
+            if len(args) != 1:
                 return None
             else:
-                self.nx.poke32(self.addr+0x10, value)
+                self.args[0].poke32(self.addr+0x10, args[0])
 
-        def poke_parent_flags(self, value=None):
-            if value == None:
+        def poke_flags(self, *args):
+            if len(args) != 1:
                 return None
             else:
-                self.nx.poke32(self.addr+0x14, value)
+                if len(args[0]) != 2:
+                    return None
+                else:
+                    for i in range(2):
+                        self.args[0].poke32(self.addr+0x14+4*i, args[0][i])
 
-        def poke_child_flags(self, value=None):
-            if value == None:
+        def poke_extended_data(self, *args):
+            if len(args) != 1:
                 return None
             else:
-                self.nx.poke32(self.addr+0x18, value)
+                self.args[0].poke32(self.addr+0x1C, args[0])
 
-        def poke_extended_data(self, value=None):
-            if value == None:
+        def poke_types(self, *args):
+            if len(args) != 1:
                 return None
             else:
-                self.nx.poke32(self.addr+0x1C, value)
+                if len(args[0]) != 2:
+                    return None
+                else:
+                    for i in range(2):
+                        self.args[0].poke8(self.addr+0x20+2*i, args[0][i])
 
-        def poke_parent_type(self, value=None):
-            if value == None:
+        def poke_placement_flags(self, *args):
+            if len(args) != 1:
                 return None
             else:
-                self.nx.poke8(self.addr+0x20, value)
-
-        def poke_child_type(self, value=None):
-            if value == None:
-                return None
-            else:
-                self.nx.poke8(self.addr+0x22, value)
-
-        def poke_placement_flags(self, placement_flags):
-            if not len(placement_flags) == 8:
-                return None
-            else:
-                for i in range(8):
-                    self.nx.poke32(self.addr+0x210+i, placement_flags[i])
-
-    def peek_actor_count_subworld(self):
-        addr1 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_enemy_count"])
-        addr2 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_item_count"])
-        addr3 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_block_count"])
-        addr4 = expression_evaluator.evaluate_expression(self, self.expressions["overworld_tile_count"])
-        return {
-            "overworld_enemy_count": [addr1, self.peek32(addr1)],
-            "overworld_item_count": [addr2, self.peek32(addr2)],
-            "overworld_block_count": [addr3, self.peek32(addr3)],
-            "overworld_tile_count": [addr4, self.peek32(addr4)]
-        }
-
-    def poke_subworld_enemy_count(self, value=None):
-        if value == None:
-            return None
-        else:
-            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_enemy_count"])
-            self.nx.poke32(addr, value)
-
-    def poke_subworld_item_count(self, value=None):
-        if value == None:
-            return None
-        else:
-            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_item_count"])
-            self.nx.poke32(addr, value)
-
-    def poke_subworld_block_count(self, value=None):
-        if value == None:
-            return None
-        else:
-            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_block_count"])
-            self.nx.poke32(addr, value)
-
-    def poke_subworld_tile_count(self, value=None):
-        if value == None:
-            return None
-        else:
-            addr = expression_evaluator.evaluate_expression(self, self.expressions["overworld_tile_count"])
-            self.nx.poke32(addr, value)
-
-    def peek_newest_actor_addr_subworld(self):
-        addr = expression_evaluator.evaluate_expression(self, self.expressions["newest_subworld_actor"])
-        return addr
+                if len(args[0]) != 8:
+                    return None
+                else:
+                    for i in range(8):
+                        self.args[0].poke32(self.addr+0x210+i, args[0][i])
 
     class newest_subworld_actor:
-        def __init__(self, nx):
-            self.nx = nx
-            self.update()
+        def __init__(self, *args):
+            if len(args) != 2:
+                return None
+            else:
+                self.args = args
+                self.update()
 
         def update(self):
-            self.addr = self.nx.peek_newest_actor_addr_subworld()
+            self.addr = self.args[0].peek_newest_subworld_actor_addr()
             self.position = {
-                "x": self.nx.peek32(self.addr),
-                "y": self.nx.peek32(self.addr+0x4),
-                "z": self.nx.peek32(self.addr+0x4)
+                "x": [self.addr, self.args[0].peek32(self.addr)],
+                "y": [self.addr+0x4, self.args[0].peek32(self.addr+0x4)],
+                "z": [self.addr+0x8, self.args[0].peek32(self.addr+0x8)]
             }
             self.size = {
-                "x": self.nx.peek32(self.addr+0xC),
-                "y": self.nx.peek32(self.addr+0x10)
+                "x": [self.addr+0xC, self.args[0].peek32(self.addr+0xC)],
+                "y": [self.addr+0x10, self.args[0].peek32(self.addr+0x10)]
             }
             self.flags = {
-                "parent": self.nx.peek32(self.addr+0x14),
-                "child": self.nx.peek32(self.addr+0x18)
+                "parent": [self.addr+0x14, self.args[0].peek32(self.addr+0x14)],
+                "child": [self.addr+0x18, self.args[0].peek32(self.addr+0x18)]
             }
-            self.extended_data = self.nx.peek32(self.addr+0x1C)
+            self.extended_data = [self.addr+0x1C, self.args[0].peek32(self.addr+0x1C)]
             self.types = {
                 "parent": [
-                    self.nx.peek8(self.addr+0x20),
-                    self.nx.peek8(self.addr+0x21)
+                    [self.addr+0x20, self.args[0].peek8(self.addr+0x20)],
+                    [self.args[0].peek8(self.addr+0x21), self.addr+0x21]
                 ],
                 "child": [
-                    self.nx.peek8(self.addr+0x22),
-                    self.nx.peek8(self.addr+0x23)
+                    [self.addr+0x22, self.args[0].peek8(self.addr+0x22)],
+                    [self.addr+0x23, self.args[0].peek8(self.addr+0x23)]
                 ]
             }
             self.placement_flags = []
             for i in range(8):
-                self.placement_flags.append(self.nx.peek32(self.addr+0x210+i))
+                self.placement_flags.append(self.args[0].peek32(self.addr+0x210+i))
 
-        def poke_pos_x(self, value=None):
-            if value == None:
+        def poke_pos_x(self, *args):
+            if len(args) != 1:
                 return None
             else:
-                self.nx.poke32(self.addr, value)
+                self.args[0].poke32(self.addr, args[0])
 
-        def poke_pos_y(self, value=None):
-            if value == None:
+        def poke_pos_y(self, *args):
+            if len(args) != 1:
                 return None
             else:
-                self.nx.poke32(self.addr+0x4, value)
+                self.args[0].poke32(self.addr, args[0])
 
-        def poke_pos_z(self, value=None):
-            if value == None:
+        def poke_pos_z(self, *args):
+            if len(args) != 1:
                 return None
             else:
-                self.nx.poke32(self.addr+0x8, value)
+                self.args[0].poke32(self.addr, args[0])
 
-        def poke_width(self, value=None):
-            if value == None:
+        def poke_width(self, *args):
+            if len(args) != 1:
                 return None
             else:
-                self.nx.poke32(self.addr+0xC, value)
+                self.args[0].poke32(self.addr, args[0])
 
-        def poke_height(self, value=None):
-            if value == None:
+        def poke_height(self, *args):
+            if len(args) != 1:
                 return None
             else:
-                self.nx.poke32(self.addr+0x10, value)
+                self.args[0].poke32(self.addr, args[0])
 
-        def poke_parent_flags(self, value=None):
-            if value == None:
+        def poke_flags(self, *args):
+            if len(args) != 1:
                 return None
             else:
-                self.nx.poke32(self.addr+0x14, value)
+                if len(args[0]) != 2:
+                    return None
+                else:
+                    for i in range(2):
+                        self.args[0].poke32(self.addr+0x14+4*i, args[0][i])
 
-        def poke_child_flags(self, value=None):
-            if value == None:
+        def poke_extended_data(self, *args):
+            if len(args) != 1:
                 return None
             else:
-                self.nx.poke32(self.addr+0x18, value)
+                self.args[0].poke32(self.addr+0x1C, args[0])
 
-        def poke_extended_data(self, value=None):
-            if value == None:
+        def poke_types(self, *args):
+            if len(args) != 1:
                 return None
             else:
-                self.nx.poke32(self.addr+0x1C, value)
+                if len(args[0]) != 2:
+                    return None
+                else:
+                    for i in range(2):
+                        self.args[0].poke8(self.addr+0x20+2*i, args[0][i])
 
-        def poke_parent_type(self, value=None):
-            if value == None:
+        def poke_placement_flags(self, *args):
+            if len(args) != 1:
                 return None
             else:
-                self.nx.poke8(self.addr+0x20, value)
-
-        def poke_child_type(self, value=None):
-            if value == None:
-                return None
-            else:
-                self.nx.poke8(self.addr+0x22, value)
-
-        def poke_placement_flags(self, placement_flags):
-            if not len(placement_flags) == 8:
-                return None
-            else:
-                for i in range(8):
-                    self.nx.poke32(self.addr+0x210+i, placement_flags[i])
-
-def float_to_hex(f):
-    return struct.unpack('<I', struct.pack('<f', f))[0]
-
-def hex_to_float(h):
-    return struct.unpack('!f', struct.pack('>I', h))[0]
-
-def main():
-    nx = NoexsClient(["192.168.1.5", "7331"])
-    nx.attach(nx.find_game(title_id))
-    nx.resume()
-    return nx, nx.find_binary()
+                if len(args[0]) != 8:
+                    return None
+                else:
+                    for i in range(8):
+                        self.args[0].poke32(self.addr+0x210+i, args[0][i])
 
 if __name__ == "__main__":
-    title_id = 0x01009B90006DC000
-    nx, binary = main()
-    nx.expressions = expressions.expressions(binary)
-    print("#%s#" % ("="*30))
-    for i in range(1, 6):
-        print("SEARCHING FOR OVERWORLD ACTORS... (ATTEMPT %s/5)" % i)
-        try:
-            newest_overworld_actor = nx.newest_overworld_actor(nx) # newest actor placed in the overworld editor
-            print("OVERWORLD ACTORS HAVE BEEN FOUND!")
-            time.sleep(1)
-            break
-        except ValueError:
-            time.sleep(1)
-            if i != 5:
-                pass
-            else:
-                print("OVERWORLD ACTORS COULD NOT BE FOUND!")
-
-    for i in range(1, 6):
-        print("SEARCHING FOR SUBWORLD ACTORS... (ATTEMPT %s/5)" % i)
-        try:
-            newest_subworld_actor = nx.newest_subworld_actor(nx) # newest actor placed in the subworld editor
-            print("SUBWORLD ACTORS HAVE BEEN FOUND!")
-            time.sleep(1)
-            break
-        except ValueError:
-            time.sleep(1)
-            if i != 5:
-                pass
-            else:
-                print("SUBWORLD ACTORS COULD NOT BE FOUND!")
+    time.sleep(5)
+    print("SUPER MARIO MAKER 2 (0x01009B90006DC000) VERSION 3.0.1 (327680)")
+    nx = NoexsClient(["192.168.1.5", "7331"])
+    newest_overworld_actor = nx.newest_overworld_actor(nx, nx.expressions)
+    newest_subworld_actor = nx.newest_subworld_actor(nx, nx.expressions)
+    nx.address_lock.start()
+    address_lock = nx.address_lock

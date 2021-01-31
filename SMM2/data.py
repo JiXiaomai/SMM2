@@ -1,8 +1,8 @@
 import enum
 
-SPRITE_COUNT = 2600
+ACTOR_COUNT = 2600
 
-SPRITE_CATEGORIES = [
+ACTOR_CATEGORIES = [
     "Terrain",
     "Items",
     "Enemies",
