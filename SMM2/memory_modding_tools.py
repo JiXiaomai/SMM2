@@ -626,7 +626,6 @@ class NoexsClient:
                         self.args[0].poke32(self.addr+0x210+i, args[0][i])
 
 if __name__ == "__main__":
-    time.sleep(5)
     print("SUPER MARIO MAKER 2 (0x01009B90006DC000) VERSION 3.0.1 (327680)")
     nx = NoexsClient(["192.168.1.5", "7331"])
     newest_overworld_actor = nx.newest_overworld_actor(nx, nx.expressions)
