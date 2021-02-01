@@ -6,6 +6,7 @@ import enum
 import struct
 import socket
 import threading
+from SMM2 import actors
 from SMM2.expression_evaluator import handle_evaluate_expression
 from SMM2.expressions import get_expressions
 
@@ -307,7 +308,7 @@ class NoexsClient:
                 self.code_mutable.append((addr, size))
 
         text, rodata, data = self.code_static_rx[1], self.code_static_r[1], self.code_mutable[1]
-        print('TEXT: %10x .. %10x' % text)
+        print('\nTEXT: %10x .. %10x' % text)
         print('RODATA: %10x .. %10x' % rodata)
         print('DATA: %10x .. %10x' % data)
 
@@ -427,33 +428,17 @@ class NoexsClient:
 
         def update(self):
             self.addr = self.args[0].peek_newest_overworld_actor_addr()
-            self.position = {
-                "x": [self.addr, self.args[0].peek32(self.addr)],
-                "y": [self.addr+0x4, self.args[0].peek32(self.addr+0x4)],
-                "z": [self.addr+0x8, self.args[0].peek32(self.addr+0x8)]
-            }
-            self.size = {
-                "x": [self.addr+0xC, self.args[0].peek32(self.addr+0xC)],
-                "y": [self.addr+0x10, self.args[0].peek32(self.addr+0x10)]
-            }
-            self.flags = {
-                "parent": [self.addr+0x14, self.args[0].peek32(self.addr+0x14)],
-                "child": [self.addr+0x18, self.args[0].peek32(self.addr+0x18)]
-            }
-            self.extended_data = [self.addr+0x1C, self.args[0].peek32(self.addr+0x1C)]
-            self.types = {
-                "parent": [
-                    [self.addr+0x20, self.args[0].peek8(self.addr+0x20)],
-                    [self.args[0].peek8(self.addr+0x21), self.addr+0x21]
-                ],
-                "child": [
-                    [self.addr+0x22, self.args[0].peek8(self.addr+0x22)],
-                    [self.addr+0x23, self.args[0].peek8(self.addr+0x23)]
-                ]
-            }
-            self.placement_flags = []
-            for i in range(8):
-                self.placement_flags.append(self.args[0].peek32(self.addr+0x210+i))
+            print("\n%08x" % self.peek_pos_x()[1])
+            print("%08x" % self.peek_pos_y()[1])
+            print("%08x" % self.peek_width()[1])
+            print("%08x" % self.peek_height()[1])
+            print("%08x %08x" % tuple(self.peek_flags()[1]))
+            print("%08x" % self.peek_extended_data()[1])
+            print("%08x %08x %08x %08x" % tuple(self.peek_types()[1]))
+            print("%08x %08x %08x %08x %08x %08x %08x %08x" % tuple(self.peek_placement_flags()[1]))
+
+        def peek_pos_x(self):
+            return [self.addr, self.args[0].peek32(self.addr)]
 
         def poke_pos_x(self, *args):
             if len(args) != 1:
@@ -461,17 +446,17 @@ class NoexsClient:
             else:
                 self.args[0].poke32(self.addr, args[0])
 
+        def peek_pos_y(self):
+            return [self.addr+0x4, self.args[0].peek32(self.addr+0x4)]
+
         def poke_pos_y(self, *args):
             if len(args) != 1:
                 return None
             else:
                 self.args[0].poke32(self.addr+0x4, args[0])
 
-        def poke_pos_z(self, *args):
-            if len(args) != 1:
-                return None
-            else:
-                self.args[0].poke32(self.addr+0x8, args[0])
+        def peek_width(self):
+            return [self.addr+0xC, self.args[0].peek32(self.addr+0xC)]
 
         def poke_width(self, *args):
             if len(args) != 1:
@@ -479,11 +464,17 @@ class NoexsClient:
             else:
                 self.args[0].poke32(self.addr+0xC, args[0])
 
+        def peek_height(self):
+            return [self.addr+0x10, self.args[0].peek32(self.addr+0x10)]
+
         def poke_height(self, *args):
             if len(args) != 1:
                 return None
             else:
                 self.args[0].poke32(self.addr+0x10, args[0])
+
+        def peek_flags(self):
+            return [self.addr+0x14, [self.args[0].peek32(self.addr+0x14+4*i) for i in range(2)]]
 
         def poke_flags(self, *args):
             if len(args) != 1:
@@ -495,21 +486,30 @@ class NoexsClient:
                     for i in range(2):
                         self.args[0].poke32(self.addr+0x14+4*i, args[0][i])
 
+        def peek_extended_data(self):
+            return [self.addr+0x1C, self.args[0].peek32(self.addr+0x1C)]
+
         def poke_extended_data(self, *args):
             if len(args) != 1:
                 return None
             else:
                 self.args[0].poke32(self.addr+0x1C, args[0])
 
+        def peek_types(self):
+            return [self.addr+0x20, [self.args[0].peek32(self.addr+0x20+i) for i in range(4)]]
+
         def poke_types(self, *args):
             if len(args) != 1:
                 return None
             else:
-                if len(args[0]) != 2:
+                if len(args[0]) != 4:
                     return None
                 else:
-                    for i in range(2):
-                        self.args[0].poke8(self.addr+0x20+2*i, args[0][i])
+                    for i in range(4):
+                        self.args[0].poke8(self.addr+0x20+i, args[0][i])
+
+        def peek_placement_flags(self):
+            return [self.addr+0x210, [self.args[0].peek32(self.addr+0x210+4*i) for i in range(8)]]
 
         def poke_placement_flags(self, *args):
             if len(args) != 1:
@@ -519,7 +519,7 @@ class NoexsClient:
                     return None
                 else:
                     for i in range(8):
-                        self.args[0].poke32(self.addr+0x210+i, args[0][i])
+                        self.args[0].poke32(self.addr+0x210+4*i, args[0][i])
 
     class newest_subworld_actor:
         def __init__(self, *args):
@@ -531,33 +531,17 @@ class NoexsClient:
 
         def update(self):
             self.addr = self.args[0].peek_newest_subworld_actor_addr()
-            self.position = {
-                "x": [self.addr, self.args[0].peek32(self.addr)],
-                "y": [self.addr+0x4, self.args[0].peek32(self.addr+0x4)],
-                "z": [self.addr+0x8, self.args[0].peek32(self.addr+0x8)]
-            }
-            self.size = {
-                "x": [self.addr+0xC, self.args[0].peek32(self.addr+0xC)],
-                "y": [self.addr+0x10, self.args[0].peek32(self.addr+0x10)]
-            }
-            self.flags = {
-                "parent": [self.addr+0x14, self.args[0].peek32(self.addr+0x14)],
-                "child": [self.addr+0x18, self.args[0].peek32(self.addr+0x18)]
-            }
-            self.extended_data = [self.addr+0x1C, self.args[0].peek32(self.addr+0x1C)]
-            self.types = {
-                "parent": [
-                    [self.addr+0x20, self.args[0].peek8(self.addr+0x20)],
-                    [self.args[0].peek8(self.addr+0x21), self.addr+0x21]
-                ],
-                "child": [
-                    [self.addr+0x22, self.args[0].peek8(self.addr+0x22)],
-                    [self.addr+0x23, self.args[0].peek8(self.addr+0x23)]
-                ]
-            }
-            self.placement_flags = []
-            for i in range(8):
-                self.placement_flags.append(self.args[0].peek32(self.addr+0x210+i))
+            print("\n%08x" % self.peek_pos_x()[1])
+            print("%08x" % self.peek_pos_y()[1])
+            print("%08x" % self.peek_width()[1])
+            print("%08x" % self.peek_height()[1])
+            print("%08x %08x" % tuple(self.peek_flags()[1]))
+            print("%08x" % self.peek_extended_data()[1])
+            print("%08x %08x %08x %08x" % tuple(self.peek_types()[1]))
+            print("%08x %08x %08x %08x %08x %08x %08x %08x" % tuple(self.peek_placement_flags()[1]))
+
+        def peek_pos_x(self):
+            return [self.addr, self.args[0].peek32(self.addr)]
 
         def poke_pos_x(self, *args):
             if len(args) != 1:
@@ -565,29 +549,35 @@ class NoexsClient:
             else:
                 self.args[0].poke32(self.addr, args[0])
 
+        def peek_pos_y(self):
+            return [self.addr+0x4, self.args[0].peek32(self.addr+0x4)]
+
         def poke_pos_y(self, *args):
             if len(args) != 1:
                 return None
             else:
-                self.args[0].poke32(self.addr, args[0])
+                self.args[0].poke32(self.addr+0x4, args[0])
 
-        def poke_pos_z(self, *args):
-            if len(args) != 1:
-                return None
-            else:
-                self.args[0].poke32(self.addr, args[0])
+        def peek_width(self):
+            return [self.addr+0xC, self.args[0].peek32(self.addr+0xC)]
 
         def poke_width(self, *args):
             if len(args) != 1:
                 return None
             else:
-                self.args[0].poke32(self.addr, args[0])
+                self.args[0].poke32(self.addr+0xC, args[0])
+
+        def peek_height(self):
+            return [self.addr+0x10, self.args[0].peek32(self.addr+0x10)]
 
         def poke_height(self, *args):
             if len(args) != 1:
                 return None
             else:
-                self.args[0].poke32(self.addr, args[0])
+                self.args[0].poke32(self.addr+0x10, args[0])
+
+        def peek_flags(self):
+            return [self.addr+0x14, [self.args[0].peek32(self.addr+0x14+4*i) for i in range(2)]]
 
         def poke_flags(self, *args):
             if len(args) != 1:
@@ -599,21 +589,30 @@ class NoexsClient:
                     for i in range(2):
                         self.args[0].poke32(self.addr+0x14+4*i, args[0][i])
 
+        def peek_extended_data(self):
+            return [self.addr+0x1C, self.args[0].peek32(self.addr+0x1C)]
+
         def poke_extended_data(self, *args):
             if len(args) != 1:
                 return None
             else:
                 self.args[0].poke32(self.addr+0x1C, args[0])
 
+        def peek_types(self):
+            return [self.addr+0x20, [self.args[0].peek32(self.addr+0x20+i) for i in range(4)]]
+
         def poke_types(self, *args):
             if len(args) != 1:
                 return None
             else:
-                if len(args[0]) != 2:
+                if len(args[0]) != 4:
                     return None
                 else:
-                    for i in range(2):
-                        self.args[0].poke8(self.addr+0x20+2*i, args[0][i])
+                    for i in range(4):
+                        self.args[0].poke8(self.addr+0x20+i, args[0][i])
+
+        def peek_placement_flags(self):
+            return [self.addr+0x210, [self.args[0].peek32(self.addr+0x210+4*i) for i in range(8)]]
 
         def poke_placement_flags(self, *args):
             if len(args) != 1:
@@ -623,12 +622,34 @@ class NoexsClient:
                     return None
                 else:
                     for i in range(8):
-                        self.args[0].poke32(self.addr+0x210+i, args[0][i])
+                        self.args[0].poke32(self.addr+0x210+4*i, args[0][i])
+
+def float_to_hex(*args):
+    if len(args) != 1:
+        return None
+    else:
+        return struct.unpack('<I', struct.pack('<f', args[0]))[0]
+
+def hex_to_float(*args):
+    if len(args) != 1:
+        return None
+    else:
+        return struct.unpack('!f', struct.pack('>I', args[0]))[0]
 
 if __name__ == "__main__":
-    print("SUPER MARIO MAKER 2 (0x01009B90006DC000) VERSION 3.0.1 (327680)")
     nx = NoexsClient(["192.168.1.5", "7331"])
+
+    print()
+    print("%08x" % nx.peek_timer()[1])
+    print("%08x %08x" % (nx.peek_overworld_enemy_count()[1], nx.peek_subworld_enemy_count()[1]))
+    print("%08x %08x" % (nx.peek_overworld_item_count()[1], nx.peek_subworld_item_count()[1]))
+    print("%08x %08x" % (nx.peek_overworld_block_count()[1], nx.peek_subworld_block_count()[1]))
+    print("%08x %08x" % (nx.peek_overworld_tile_count()[1], nx.peek_subworld_tile_count()[1]))
+
     newest_overworld_actor = nx.newest_overworld_actor(nx, nx.expressions)
+
+    print()
+
     newest_subworld_actor = nx.newest_subworld_actor(nx, nx.expressions)
     nx.address_lock.start()
     address_lock = nx.address_lock
