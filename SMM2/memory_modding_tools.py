@@ -321,11 +321,14 @@ class NoexsClient:
 
     def poke_player_position_edit(self, *args):
         addr = handle_evaluate_expression(self, self.expressions[11])
-        if len(args[0]) != 2:
+        if len(args) != 1:
             return None
         else:
-            for i in range(2):
-                self.poke32(addr+0x4*i, args[0][i])
+            if len(args[0]) != 2:
+                return None
+            else:
+                for i in range(2):
+                    self.poke32(addr+0x4*i, args[0][i])
 
     def peek_player_position_play(self, *args):
         addr = handle_evaluate_expression(self, self.expressions[13])
@@ -333,11 +336,38 @@ class NoexsClient:
 
     def poke_player_position_play(self, *args):
         addr = handle_evaluate_expression(self, self.expressions[13])
-        if len(args[0]) != 2:
+        if len(args) != 1:
             return None
         else:
-            for i in range(2):
-                self.poke32(addr+0x4*i, args[0][i])
+            if len(args[0]) != 2:
+                return None
+            else:
+                for i in range(2):
+                    self.poke32(addr+0x4*i, args[0][i])
+
+    def shift_player_tile_left(self, *args):
+        if len(args) != 1:
+            return None
+        else:
+            self.poke_player_position_play([float_to_hex(hex_to_float(self.peek_player_position_play()[1][0])-16.0*args[0]), self.peek_player_position_play()[1][1]])
+
+    def shift_player_tile_right(self, *args):
+        if len(args) != 1:
+            return None
+        else:
+            self.poke_player_position_play([float_to_hex(hex_to_float(self.peek_player_position_play()[1][0])+16.0*args[0]), self.peek_player_position_play()[1][1]])
+
+    def shift_player_tile_up(self, *args):
+        if len(args) != 1:
+            return None
+        else:
+            self.poke_player_position_play([self.peek_player_position_play()[1][0], float_to_hex(hex_to_float(self.peek_player_position_play()[1][1])+16.0*args[0])])
+
+    def shift_player_tile_down(self, *args):
+        if len(args) != 1:
+            return None
+        else:
+            self.poke_player_position_play([self.peek_player_position_play()[1][0], float_to_hex(hex_to_float(self.peek_player_position_play()[1][1])-16.0*args[0])])
 
     def peek_timer(self, *args):
         addr = handle_evaluate_expression(self, self.expressions[0])
@@ -447,30 +477,6 @@ class NoexsClient:
             else:
                 self.args[0].poke32(self.addr, args[0])
 
-        def move_pixel_left(self, *args):
-            if len(args) != 1:
-                return None
-            else:
-                self.args[0].poke32(self.addr, float_to_hex(hex_to_float(self.peek_pos_x()[1])-args[0]))
-
-        def move_pixel_right(self, *args):
-            if len(args) != 1:
-                return None
-            else:
-                self.args[0].poke32(self.addr, float_to_hex(hex_to_float(self.peek_pos_x()[1])+args[0]))
-
-        def move_tile_left(self, *args):
-            if len(args) != 1:
-                return None
-            else:
-                self.args[0].poke32(self.addr, float_to_hex(hex_to_float(self.peek_pos_x()[1])-16.0*args[0]))
-
-        def move_tile_right(self, *args):
-            if len(args) != 1:
-                return None
-            else:
-                self.args[0].poke32(self.addr, float_to_hex(hex_to_float(self.peek_pos_x()[1])+16.0*args[0]))
-
         def peek_pos_y(self):
             return [self.addr+0x4, self.args[0].peek32(self.addr+0x4)]
 
@@ -480,29 +486,31 @@ class NoexsClient:
             else:
                 self.args[0].poke32(self.addr+0x4, args[0])
 
-        def move_pixel_up(self, *args):
+        def shift_pixels(self, *args):
             if len(args) != 1:
                 return None
             else:
-                self.args[0].poke32(self.addr+0x4, float_to_hex(hex_to_float(self.peek_pos_y()[1])+args[0]))
+                if len(args[0]) != 2:
+                    return None
+                else:
+                    if "x" in args[0] and "y" in args[0]:
+                        self.poke_pos_x(float_to_hex(hex_to_float(self.peek_pos_x()[1])+args[0]["x"]))
+                        self.poke_pos_y(float_to_hex(hex_to_float(self.peek_pos_y()[1])+args[0]["y"]))
+                    else:
+                        return None
 
-        def move_pixel_down(self, *args):
+        def shift_tiles(self, *args):
             if len(args) != 1:
                 return None
             else:
-                self.args[0].poke32(self.addr+0x4, float_to_hex(hex_to_float(self.peek_pos_y()[1])-args[0]))
-
-        def move_tile_up(self, *args):
-            if len(args) != 1:
-                return None
-            else:
-                self.args[0].poke32(self.addr+0x4, float_to_hex(hex_to_float(self.peek_pos_y()[1])+16.0*args[0]))
-
-        def move_tile_down(self, *args):
-            if len(args) != 1:
-                return None
-            else:
-                self.args[0].poke32(self.addr+0x4, float_to_hex(hex_to_float(self.peek_pos_y()[1])-16.0*args[0]))
+                if len(args[0]) != 2:
+                    return None
+                else:
+                    if "x" in args[0] and "y" in args[0]:
+                        self.poke_pos_x(float_to_hex(hex_to_float(self.peek_pos_x()[1])+16.0*args[0]["x"]))
+                        self.poke_pos_y(float_to_hex(hex_to_float(self.peek_pos_y()[1])+16.0*args[0]["y"]))
+                    else:
+                        return None
 
         def peek_width(self):
             return [self.addr+0xC, self.args[0].peek32(self.addr+0xC)]
@@ -598,24 +606,6 @@ class NoexsClient:
             else:
                 self.args[0].poke32(self.addr, args[0])
 
-        def move_pixel_right(self, *args):
-            if len(args) != 1:
-                return None
-            else:
-                self.args[0].poke32(self.addr, float_to_hex(hex_to_float(self.peek_pos_x()[1])+args[0]))
-
-        def move_tile_left(self, *args):
-            if len(args) != 1:
-                return None
-            else:
-                self.args[0].poke32(self.addr, float_to_hex(hex_to_float(self.peek_pos_x()[1])-16.0*args[0]))
-
-        def move_tile_right(self, *args):
-            if len(args) != 1:
-                return None
-            else:
-                self.args[0].poke32(self.addr, float_to_hex(hex_to_float(self.peek_pos_x()[1])+16.0*args[0]))
-
         def peek_pos_y(self):
             return [self.addr+0x4, self.args[0].peek32(self.addr+0x4)]
 
@@ -625,29 +615,31 @@ class NoexsClient:
             else:
                 self.args[0].poke32(self.addr+0x4, args[0])
 
-        def move_pixel_up(self, *args):
+        def shift_pixels(self, *args):
             if len(args) != 1:
                 return None
             else:
-                self.args[0].poke32(self.addr+0x4, float_to_hex(hex_to_float(self.peek_pos_y()[1])+args[0]))
+                if len(args[0]) != 2:
+                    return None
+                else:
+                    if "x" in args[0] and "y" in args[0]:
+                        self.poke_pos_x(float_to_hex(hex_to_float(self.peek_pos_x()[1])+args[0]["x"]))
+                        self.poke_pos_y(float_to_hex(hex_to_float(self.peek_pos_y()[1])+args[0]["y"]))
+                    else:
+                        return None
 
-        def move_pixel_down(self, *args):
+        def shift_tiles(self, *args):
             if len(args) != 1:
                 return None
             else:
-                self.args[0].poke32(self.addr+0x4, float_to_hex(hex_to_float(self.peek_pos_y()[1])-args[0]))
-
-        def move_tile_up(self, *args):
-            if len(args) != 1:
-                return None
-            else:
-                self.args[0].poke32(self.addr+0x4, float_to_hex(hex_to_float(self.peek_pos_y()[1])+16.0*args[0]))
-
-        def move_tile_down(self, *args):
-            if len(args) != 1:
-                return None
-            else:
-                self.args[0].poke32(self.addr+0x4, float_to_hex(hex_to_float(self.peek_pos_y()[1])-16.0*args[0]))
+                if len(args[0]) != 2:
+                    return None
+                else:
+                    if "x" in args[0] and "y" in args[0]:
+                        self.poke_pos_x(float_to_hex(hex_to_float(self.peek_pos_x()[1])+16.0*args[0]["x"]))
+                        self.poke_pos_y(float_to_hex(hex_to_float(self.peek_pos_y()[1])+16.0*args[0]["y"]))
+                    else:
+                        return None
 
         def peek_width(self):
             return [self.addr+0xC, self.args[0].peek32(self.addr+0xC)]
