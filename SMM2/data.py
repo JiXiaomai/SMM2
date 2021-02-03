@@ -1,5 +1,7 @@
 import enum
 
+TILE_WIDTHS = {"M1": 16, "M3": 16, "MW": 16, "WU": 64, "3W": 64}
+
 ACTOR_COUNT = 2600
 
 ACTOR_CATEGORIES = [

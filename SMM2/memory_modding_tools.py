@@ -299,7 +299,7 @@ class NoexsClient:
         self.code_static_r = []
         self.code_mutable = []
         for addr, size, typ, perm in self.get_memory_info():
-            print('%10x %10x %d %r' % (addr, size, perm, typ))
+            print('%10X %10X %d %r' % (addr, size, perm, typ))
             if typ == MemoryType.CODE_STATIC:
                 if perm == 5:
                     self.code_static_rx.append((addr, size))
@@ -309,9 +309,9 @@ class NoexsClient:
                 self.code_mutable.append((addr, size))
 
         text, rodata, data = self.code_static_rx[1], self.code_static_r[1], self.code_mutable[1]
-        print('\nTEXT: %10x .. %10x' % text)
-        print('RODATA: %10x .. %10x' % rodata)
-        print('DATA: %10x .. %10x' % data)
+        print('\nTEXT: %10X .. %10X' % text)
+        print('RODATA: %10X .. %10X' % rodata)
+        print('DATA: %10X .. %10X' % data)
 
         return self.code_static_rx[0][0]+0x4000
 
@@ -429,14 +429,14 @@ class NoexsClient:
 
         def update(self):
             self.addr = self.args[0].peek_newest_overworld_actor_addr()
-            print("\n%08x" % self.peek_pos_x()[1])
-            print("%08x" % self.peek_pos_y()[1])
-            print("%08x" % self.peek_width()[1])
-            print("%08x" % self.peek_height()[1])
-            print("%08x %08x" % tuple(self.peek_flags()[1]))
-            print("%08x" % self.peek_extended_data()[1])
-            print("%08x %08x %08x %08x" % tuple(self.peek_types()[1]))
-            print("%08x %08x %08x %08x %08x %08x %08x %08x" % tuple(self.peek_placement_flags()[1]))
+            print("\n%08X" % self.peek_pos_x()[1])
+            print("%08X" % self.peek_pos_y()[1])
+            print("%08X" % self.peek_width()[1])
+            print("%08X" % self.peek_height()[1])
+            print("%08X %08X" % tuple(self.peek_flags()[1]))
+            print("%08X" % self.peek_extended_data()[1])
+            print("%08X %08X %08X %08X" % tuple(self.peek_types()[1]))
+            print("%08X %08X %08X %08X %08X %08X %08X %08X" % tuple(self.peek_placement_flags()[1]))
 
         def peek_pos_x(self):
             return [self.addr, self.args[0].peek32(self.addr)]
@@ -580,14 +580,14 @@ class NoexsClient:
 
         def update(self):
             self.addr = self.args[0].peek_newest_subworld_actor_addr()
-            print("\n%08x" % self.peek_pos_x()[1])
-            print("%08x" % self.peek_pos_y()[1])
-            print("%08x" % self.peek_width()[1])
-            print("%08x" % self.peek_height()[1])
-            print("%08x %08x" % tuple(self.peek_flags()[1]))
-            print("%08x" % self.peek_extended_data()[1])
-            print("%08x %08x %08x %08x" % tuple(self.peek_types()[1]))
-            print("%08x %08x %08x %08x %08x %08x %08x %08x" % tuple(self.peek_placement_flags()[1]))
+            print("\n%08X" % self.peek_pos_x()[1])
+            print("%08X" % self.peek_pos_y()[1])
+            print("%08X" % self.peek_width()[1])
+            print("%08X" % self.peek_height()[1])
+            print("%08X %08X" % tuple(self.peek_flags()[1]))
+            print("%08X" % self.peek_extended_data()[1])
+            print("%08X %08X %08X %08X" % tuple(self.peek_types()[1]))
+            print("%08X %08X %08X %08X %08X %08X %08X %08X" % tuple(self.peek_placement_flags()[1]))
 
         def peek_pos_x(self):
             return [self.addr, self.args[0].peek32(self.addr)]
@@ -731,11 +731,11 @@ if __name__ == "__main__":
     nx = NoexsClient(["192.168.1.5", "7331"])
 
     print()
-    print("%08x" % nx.peek_timer()[1])
-    print("%08x %08x" % (nx.peek_overworld_enemy_count()[1], nx.peek_subworld_enemy_count()[1]))
-    print("%08x %08x" % (nx.peek_overworld_item_count()[1], nx.peek_subworld_item_count()[1]))
-    print("%08x %08x" % (nx.peek_overworld_block_count()[1], nx.peek_subworld_block_count()[1]))
-    print("%08x %08x" % (nx.peek_overworld_tile_count()[1], nx.peek_subworld_tile_count()[1]))
+    print("%08X" % nx.peek_timer()[1])
+    print("%08X %08X" % (nx.peek_overworld_enemy_count()[1], nx.peek_subworld_enemy_count()[1]))
+    print("%08X %08X" % (nx.peek_overworld_item_count()[1], nx.peek_subworld_item_count()[1]))
+    print("%08X %08X" % (nx.peek_overworld_block_count()[1], nx.peek_subworld_block_count()[1]))
+    print("%08X %08X" % (nx.peek_overworld_tile_count()[1], nx.peek_subworld_tile_count()[1]))
 
     newest_overworld_actor = nx.newest_overworld_actor(nx, nx.expressions)
 
