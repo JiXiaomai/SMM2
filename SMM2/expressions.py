@@ -43,5 +43,11 @@ def get_expressions(*args):
         13: [[[[[args[0]+0x2C19288], 0x1D0], 0x84], 0x90], 0x188],
 
         # 14: Y POSITION OF THE PLAYER IN PLAY MODE: [[[[main+2C19288]+1D0]+84]+90]+18C
-        14: [[[[[args[0]+0x2C19288], 0x1D0], 0x84], 0x90], 0x18C]
+        14: [[[[[args[0]+0x2C19288], 0x1D0], 0x84], 0x90], 0x18C],
+
+        # 15: CURRENT GAME STYLE: [[[[main+2A692F0]+10]+40]+08]+3C
+        15: [[[[[args[0]+0x2A692F0], 0x10], 0x40], 0x08], 0x3C],
+
+        # 16: CURRENT POWERUP STATE: [[[[main+2C19288]+20]+60]+48]+B8
+        16: [[[[[args[0]+0x2C19288], 0x20], 0x60], 0x48], 0xB8]
     }

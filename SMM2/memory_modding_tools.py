@@ -33,14 +33,14 @@ class NoexsClient:
             return None
         else:
             self.sock = socket.create_connection(args[0])
-            self.address_lock = self.addr_lock(self, [])
+            self.address_lock = self.addresslock(self, [])
             self.title_id = 0x01009B90006DC000
             self.attach(self.find_game(self.title_id))
             self.resume()
             self.binary = self.find_binary()
             self.expressions = get_expressions(self.binary)
 
-    class addr_lock(threading.Thread):
+    class addresslock(threading.Thread):
         def __init__(self, *args):
             super().__init__()
             self.__flag = threading.Event()
@@ -314,6 +314,29 @@ class NoexsClient:
         print('DATA: %10X .. %10X' % data)
 
         return self.code_static_rx[0][0]+0x4000
+
+    def peek_current_game_style(self):
+        addr = handle_evaluate_expression(self, self.expressions[15])
+        game_styles = {0: "M1", 1: "M3", 2: "MW", 3: "WU", 4: "3W"}
+        return [addr, (self.peek32(addr)), game_styles[(self.peek32(addr))]]
+
+    def poke_current_game_style(self, *args):
+        if len(args) != 1:
+            return None
+        else:
+            addr = handle_evaluate_expression(self, self.expressions[15])
+            self.poke32(addr, args[0])
+
+    def peek_current_powerup_state(self):
+        addr = handle_evaluate_expression(self, self.expressions[16])
+        return [addr, (self.peek32(addr))]
+
+    def poke_current_powerup_state(self, *args):
+        if len(args) != 1:
+            return None
+        else:
+            addr = handle_evaluate_expression(self, self.expressions[16])
+            self.poke32(addr, args[0])
 
     def peek_player_position_edit(self, *args):
         addr = handle_evaluate_expression(self, self.expressions[11])
@@ -735,4 +758,3 @@ if __name__ == "__main__":
 
     newest_subworld_actor = nx.newest_subworld_actor(nx, nx.expressions)
     nx.address_lock.start()
-    address_lock = nx.address_lock

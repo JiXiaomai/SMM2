@@ -144,7 +144,7 @@ class Thumbnail:
         self.mac.update(self.decrypted)
         self.mac.digest()
 
-        self.data = self.header.data() + self.encrypted + self.aes.iv + self.randomState + self.mac.digest()
+        self.data = self.encrypted + self.aes.iv + self.randomState + self.mac.digest()
 
         return None
 
